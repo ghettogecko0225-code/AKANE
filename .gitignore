@@ -4,6 +4,9 @@ __pycache__/
 *.pyc
 *.spec
 !buildozer.spec
+!JapaneseSenseiAI.spec
+models/
+dist/JapaneseSenseiAI/models/
 data/sensei.db
 assets/openjlpt/.git
 sessions/

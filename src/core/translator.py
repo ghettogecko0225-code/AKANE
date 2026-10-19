@@ -2,8 +2,9 @@ import pathlib
 import ctranslate2
 import sentencepiece
 
-STUDIO = pathlib.Path(r"C:\Users\Universe\Desktop\Hive Pulse Interactive\VIKI\Studio")
-TRANS_DIR = STUDIO / "models" / "translation"
+from core.paths import models_root
+
+TRANS_DIR = models_root() / "translation"
 
 _MODELS = {}
 

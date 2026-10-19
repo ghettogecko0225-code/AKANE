@@ -1,4 +1,5 @@
 import sys
+import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,14 +17,27 @@ except Exception:
     pass
 
 from PyQt6.QtWidgets import QApplication
+from core.paths import resource_root, data_root
 from pc.main_window import MainWindow
 
 
+def _crash_log(exc_type, exc, tb):
+    try:
+        from core.paths import data_root
+        log = data_root() / "crash_log.txt"
+        with open(log, "a", encoding="utf-8") as f:
+            f.write("\n=== crash ===\n")
+            f.write("".join(traceback.format_exception(exc_type, exc, tb)))
+    except Exception:
+        pass
+
+
 def main():
+    sys.excepthook = _crash_log
     app = QApplication(sys.argv)
     app.setApplicationName("Japanese Sensei AI")
     app.setApplicationVersion("0.1.0")
-    window = MainWindow(ROOT)
+    window = MainWindow(resource_root(), data_root())
     window.show()
     sys.exit(app.exec())
 

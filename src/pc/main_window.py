@@ -26,20 +26,20 @@ from pc.shadowing_panel import ShadowingPanel
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, root):
+    def __init__(self, root, data_dir=None):
         super().__init__()
         self.root = Path(root)
+        self.data_dir = Path(data_dir) if data_dir else self.root
         self.setWindowTitle("Japanese Sensei AI")
         self.resize(900, 600)
 
-        db_path = self.root / "data" / "sensei.db"
+        db_path = self.data_dir / "data" / "sensei.db"
         self.conn = connect(str(db_path))
         self.engine = FlashCardEngine(self.conn)
         self.progress = ProgressTracker(self.conn)
 
         hives = self._load_hives()
         existing = {d["name"] for d in self.engine.list_decks()}
-        seeds = [("Hiragana", "hiragana.json"), ("Katakana", "katakana.json"), ("Kanji N5", "kanji_n5.json")]
         seed_map = [("Hiragana", "hiragana.json"), ("Katakana", "katakana.json"), ("Kanji Starter", "kanji_n5.json")]
         for name, fname in seed_map:
             if name not in existing:

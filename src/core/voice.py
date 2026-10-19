@@ -17,8 +17,9 @@ except Exception:
 
 import numpy as np
 
-STUDIO = pathlib.Path(r"C:\Users\Universe\Desktop\Hive Pulse Interactive\VIKI\Studio")
-MODELS_DIR = STUDIO / "models"
+from core.paths import models_root
+
+MODELS_DIR = models_root()
 PIPER_DIR = MODELS_DIR / "piper"
 JAPANESE_VOICE = "ja_JP-hi_fi_captain-medium"
 
