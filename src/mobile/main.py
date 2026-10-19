@@ -48,8 +48,6 @@ import os
 import threading
 import tempfile
 import wave
-import numpy as np
-import sounddevice as sd
 
 
 class HomeScreen(Screen):
@@ -187,6 +185,8 @@ class VoiceScreen(Screen):
             path = os.path.join(d, "tts.wav")
             synthesize_to_wav(text, path)
             # play
+            import numpy as np
+            import sounddevice as sd
             with wave.open(path, "rb") as wf:
                 rate = wf.getframerate()
                 data = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
