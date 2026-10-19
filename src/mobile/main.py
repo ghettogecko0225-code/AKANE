@@ -50,13 +50,7 @@ from core import android_speech
 
 ANDROID = android_speech.is_available()
 
-TTS = None
-if ANDROID:
-    try:
-        TTS = android_speech.AndroidTTS("ja")
-        TTS.set_language("ja")
-    except Exception:
-        TTS = None
+TTS = android_speech.AndroidTTS("ja") if ANDROID else None
 
 
 def _tts_speak(text):
@@ -68,8 +62,10 @@ def _tts_speak(text):
         return False
 
 
-def _tts_available():
-    return TTS is not None
+def _tts_error():
+    if TTS is None:
+        return "TTS not available"
+    return getattr(TTS, "last_error", "") or "TTS unavailable on this device"
 
 
 class BaseScreen(Screen):
@@ -211,7 +207,7 @@ class VoiceScreen(BaseScreen):
         if _tts_speak(text):
             self.status.text = "Speaking..."
         else:
-            self.status.text = "TTS unavailable on this device"
+            self.status.text = f"TTS error: {_tts_error()}"
 
     def listen(self, *a):
         if not ANDROID:
@@ -418,7 +414,7 @@ class ListeningScreen(BaseScreen):
         if _tts_speak(self.current["ja"]):
             self.status.text = "Playing..."
         else:
-            self.status.text = "TTS unavailable on this device"
+            self.status.text = f"TTS error: {_tts_error()}"
 
     def check(self, *a):
         if self.current is None:
@@ -583,7 +579,7 @@ class ShadowingScreen(BaseScreen):
         if _tts_speak(self.current["line"]):
             self.status.text = "Playing..."
         else:
-            self.status.text = "TTS unavailable on this device"
+            self.status.text = f"TTS error: {_tts_error()}"
 
 
 class ProgressScreen(BaseScreen):

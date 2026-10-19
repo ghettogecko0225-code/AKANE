@@ -15,13 +15,44 @@ def is_available():
         return False
 
 
+def _log(msg):
+    print(f"[android_speech] {msg}")
+    try:
+        import sys
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
 def _activity():
     from jnius import autoclass
-    return autoclass("org.kivy.android.PythonActivity").mActivity
+    act = autoclass("org.kivy.android.PythonActivity").mActivity
+    if act is None:
+        raise RuntimeError("no activity yet")
+    return act
 
 
-class _TtsInitListener:
-    pass
+def run_on_ui_thread(fn):
+    """Post a callable onto the Android UI thread (required by the
+    speech APIs, which refuse calls from background threads)."""
+    from jnius import autoclass, PythonJavaClass, java_method
+
+    class UiRunnable(PythonJavaClass):
+        __javainterfaces__ = ["java/lang/Runnable"]
+        __javacontext__ = "app"
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.fn = fn
+
+        @java_method("()V")
+        def run(self):
+            self.fn()
+
+    Handler = autoclass("android.os.Handler")
+    Looper = autoclass("android.os.Looper")
+    handler = Handler(Looper.getMainLooper())
+    handler.post(UiRunnable())
 
 
 def _make_tts_listener():
@@ -43,48 +74,80 @@ def _make_tts_listener():
 
 
 class AndroidTTS:
-    """Thin wrapper over android.speech.tts.TextToVoice."""
+    """Thin wrapper over android.speech.tts.TextToSpeech.
+
+    Created lazily: the Activity is not ready during module import.
+    """
 
     QUEUE_FLUSH = 0
     QUEUE_ADD = 1
 
     def __init__(self, lang="ja"):
-        self.ok = False
         self.lang = lang
         self._tts = None
-        try:
-            from jnius import autoclass
-            self._tts = autoclass("android.speech.tts.TextToSpeech")(
-                _activity(), _make_tts_listener()
-            )
-            self.ok = True
-        except Exception:
-            self._tts = None
+        self._listener = None
+        self._lock = threading.Lock()
+        self.last_error = ""
+
+    @property
+    def ready(self):
+        return self._tts is not None
+
+    def _ensure(self):
+        if self._tts is not None:
+            return self._tts
+        with self._lock:
+            if self._tts is not None:
+                return self._tts
+            try:
+                from jnius import autoclass
+                activity = _activity()
+                self._listener = _make_tts_listener()
+                self._tts = autoclass("android.speech.tts.TextToSpeech")(
+                    activity, self._listener
+                )
+                self.set_language(self.lang)
+                _log(f"TextToSpeech created (init status {getattr(self._listener, 'status', '?')})")
+            except Exception as e:
+                self.last_error = f"{type(e).__name__}: {e}"
+                _log(f"TextToSpeech failed: {self.last_error}")
+                self._tts = None
+        return self._tts
 
     def set_language(self, lang=None):
-        if not self._tts:
+        tts = self._tts
+        if not tts:
             return False
         try:
             from jnius import autoclass
             Locale = autoclass("java.util.Locale")
             code = (lang or self.lang).split("-")
             loc = Locale(code[0], code[1] if len(code) > 1 else "")
-            result = self._tts.setLanguage(loc)
-            return int(result) >= 0
-        except Exception:
+            result = int(tts.setLanguage(loc))
+            _log(f"setLanguage({lang}) -> {result}")
+            return result >= 0
+        except Exception as e:
+            self.last_error = f"{type(e).__name__}: {e}"
+            _log(f"setLanguage failed: {self.last_error}")
             return False
 
     def speak(self, text):
-        if not self._tts:
+        text = (text or "").strip()
+        if not text:
+            return False
+        tts = self._ensure()
+        if not tts:
             return False
         try:
-            self._tts.speak(text, self.QUEUE_FLUSH, None)
+            tts.speak(text, self.QUEUE_FLUSH, None)
             return True
         except Exception:
             try:
-                self._tts.speak(text, self.QUEUE_FLUSH, None, "sensei")
+                tts.speak(text, self.QUEUE_FLUSH, None, "sensei")
                 return True
-            except Exception:
+            except Exception as e:
+                self.last_error = f"{type(e).__name__}: {e}"
+                _log(f"speak failed: {self.last_error}")
                 return False
 
     def stop(self):
@@ -113,19 +176,19 @@ def _make_recognizer_listener(on_result, on_error):
         @java_method("(Landroid/os/Bundle;)V")
         def onResults(self, results):
             try:
-                values = results.getStringArrayList(
-                    results.keySet().toArray()[0]
-                    if False else "results"
-                )
+                values = results.getStringArrayList("results")
                 text = ""
                 if values is not None and values.size() > 0:
                     text = str(values.get(0))
+                _log(f"recognizer result: {text!r}")
                 on_result(text)
-            except Exception:
+            except Exception as e:
+                _log(f"onResults parse failed: {e}")
                 on_result("")
 
         @java_method("(ILandroid/os/Bundle;)V")
         def onError(self, error, extras):
+            _log(f"recognizer error {int(error)}")
             on_error(int(error))
 
         @java_method("(Landroid/os/Bundle;)V")
@@ -160,39 +223,58 @@ def _make_recognizer_listener(on_result, on_error):
 
 
 class AndroidSTT:
-    """SpeechRecognizer wrapper. Must be created and used on the UI thread."""
+    """SpeechRecognizer wrapper."""
 
     def __init__(self, lang="ja"):
-        self.ok = False
         self.lang = lang
         self._recognizer = None
         self._listener = None
+        self.last_error = ""
+
+    def _ensure(self):
+        if self._recognizer is not None:
+            return self._recognizer
         try:
             from jnius import autoclass
-            self._recognizer = autoclass("android.speech.SpeechRecognizer").createSpeechRecognizer()
-            self.ok = True
-        except Exception:
+            activity = _activity()
+            self._recognizer = autoclass("android.speech.SpeechRecognizer").createSpeechRecognizer(activity)
+            _log("SpeechRecognizer created")
+        except Exception as e:
+            self.last_error = f"{type(e).__name__}: {e}"
+            _log(f"SpeechRecognizer failed: {self.last_error}")
             self._recognizer = None
+        return self._recognizer
 
     def listen(self, on_result, on_error):
-        if not self._recognizer:
-            on_error(-1)
-            return False
+        def start():
+            rec = self._ensure()
+            if not rec:
+                on_error(-1)
+                return
+            try:
+                from jnius import autoclass
+                RecognizerIntent = autoclass("android.speech.RecognizerIntent")
+                intent = RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+                intent.putExtra(
+                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                )
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, self.lang)
+                intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, False)
+                self._listener = _make_recognizer_listener(on_result, on_error)
+                rec.setRecognitionListener(self._listener)
+                rec.startListening(intent)
+            except Exception as e:
+                self.last_error = f"{type(e).__name__}: {e}"
+                _log(f"startListening failed: {self.last_error}")
+                on_error(-1)
+
         try:
-            from jnius import autoclass
-            RecognizerIntent = autoclass("android.speech.RecognizerIntent")
-            intent = RecognizerIntent.ACTION_RECOGNIZE_SPEECH
-            intent.putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
-            )
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, self.lang)
-            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, False)
-            self._listener = _make_recognizer_listener(on_result, on_error)
-            self._recognizer.setRecognitionListener(self._listener)
-            self._recognizer.startListening(intent)
+            run_on_ui_thread(start)
             return True
-        except Exception:
+        except Exception as e:
+            self.last_error = f"{type(e).__name__}: {e}"
+            _log(f"run_on_ui_thread failed: {self.last_error}")
             on_error(-1)
             return False
 
