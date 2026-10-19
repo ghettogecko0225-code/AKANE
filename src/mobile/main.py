@@ -22,6 +22,11 @@ from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.spinner import Spinner
 from kivy.core.window import Window
+from kivy.core.text import LabelBase
+try:
+    LabelBase.register(name="Roboto", fn_regular=str(ROOT / "assets" / "fonts" / "msgothic.ttc"))
+except Exception:
+    pass
 
 from core.db import connect
 from core.flashcards import FlashCardEngine
@@ -214,6 +219,126 @@ class VoiceScreen(Screen):
             self.status.text = f"Error: {e}"
 
 
+class WorkbookScreen(Screen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(**kwargs)
+        self.app_ref = app_ref
+        self.drill = []
+        self.index = 0
+        self.results = []
+        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
+        layout.add_widget(Label(text="Workbook", font_size=20))
+        self.prompt = Label(text="Press Start", font_size=32, size_hint=(1, 0.3))
+        layout.add_widget(self.prompt)
+        self.answer = TextInput(size_hint=(1, 0.15), multiline=False)
+        layout.add_widget(self.answer)
+        btn_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.12), spacing=5)
+        start_btn = Button(text="Start")
+        start_btn.bind(on_press=self.start)
+        btn_row.add_widget(start_btn)
+        submit_btn = Button(text="Submit")
+        submit_btn.bind(on_press=self.submit)
+        btn_row.add_widget(submit_btn)
+        layout.add_widget(btn_row)
+        self.feedback = Label(text="", size_hint=(1, 0.1))
+        layout.add_widget(self.feedback)
+        self.score = Label(text="", size_hint=(1, 0.1))
+        layout.add_widget(self.score)
+        back_btn = Button(text="Home", size_hint=(1, 0.1))
+        back_btn.bind(on_press=lambda x: self.app_ref.go("Home"))
+        layout.add_widget(back_btn)
+        self.add_widget(layout)
+
+    def start(self, *a):
+        from core.workbook import WorkbookEngine
+        wb = WorkbookEngine(self.app_ref.engine)
+        self.drill = wb.make_drill(self.app_ref.deck_id, count=10)
+        if not self.drill:
+            self.prompt.text = "No cards"
+            return
+        self.index = 0
+        self.results = []
+        self.show_current()
+
+    def show_current(self):
+        if self.index >= len(self.drill):
+            from core.workbook import WorkbookEngine
+            s = WorkbookEngine.score(self.results)
+            self.prompt.text = "Done"
+            self.score.text = f"Score: {s['correct']}/{s['total']} ({s['percent']}%)"
+            return
+        self.prompt.text = self.drill[self.index]["prompt"]
+        self.answer.text = ""
+        self.feedback.text = ""
+
+    def submit(self, *a):
+        if self.index >= len(self.drill):
+            return
+        from core.workbook import WorkbookEngine
+        d = self.drill[self.index]
+        ok = WorkbookEngine.check(self.answer.text, d["answer"])
+        self.results.append(ok)
+        self.feedback.text = "Correct!" if ok else f"Wrong: {d['answer']}"
+        self.index += 1
+        self.show_current()
+
+
+class ReadingScreen(Screen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(**kwargs)
+        self.app_ref = app_ref
+        self.passages = load_passages(str(app_ref.root_path))
+        self.current = None
+        self.showing = False
+        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
+        layout.add_widget(Label(text="Reading", font_size=20))
+        self.title = Label(text="", size_hint=(1, 0.1))
+        layout.add_widget(self.title)
+        self.text_area = Label(text="", size_hint=(1, 0.5))
+        self.text_area.text_size = (Window.width - 40, None)
+        layout.add_widget(self.text_area)
+        btn_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.12), spacing=5)
+        new_btn = Button(text="New")
+        new_btn.bind(on_press=self.new_passage)
+        btn_row.add_widget(new_btn)
+        tog_btn = Button(text="Translate")
+        tog_btn.bind(on_press=self.toggle)
+        btn_row.add_widget(tog_btn)
+        layout.add_widget(btn_row)
+        self.q_label = Label(text="", size_hint=(1, 0.2))
+        layout.add_widget(self.q_label)
+        back_btn = Button(text="Home", size_hint=(1, 0.1))
+        back_btn.bind(on_press=lambda x: self.app_ref.go("Home"))
+        layout.add_widget(back_btn)
+        self.add_widget(layout)
+        self.new_passage()
+
+    def new_passage(self, *a):
+        import random
+        pool = self.passages
+        if not pool:
+            self.title.text = "No passages"
+            return
+        self.current = random.choice(pool)
+        self.showing = False
+        self.title.text = f"{self.current['title']} ({self.current['level']})"
+        self.text_area.text = self.current["text"]
+        qs = self.current.get("questions", [])
+        if qs:
+            q = qs[0]
+            self.q_label.text = q["q"] + "\n" + " / ".join(q["options"])
+
+    def toggle(self, *a):
+        if self.current is None:
+            return
+        if self.showing:
+            self.text_area.text = self.current["text"]
+            self.showing = False
+        else:
+            self.text_area.text = self.current["text"] + "\n\n" + self.current["translation"]
+            self.showing = True
+
+
 class SimpleScreen(Screen):
     def __init__(self, app_ref, name, message, **kwargs):
         super().__init__(**kwargs)
@@ -258,7 +383,9 @@ class SenseiApp(App):
             self.sm.add_widget(VoiceScreen(self, name="Voice"))
         else:
             self.sm.add_widget(SimpleScreen(self, "Voice", "Voice not available on this device."))
-        for n in ["Workbook", "Reading", "Listening", "Speaking", "News", "Shadowing", "Progress"]:
+        self.sm.add_widget(WorkbookScreen(self, name="Workbook"))
+        self.sm.add_widget(ReadingScreen(self, name="Reading"))
+        for n in ["Listening", "Speaking", "News", "Shadowing", "Progress"]:
             self.sm.add_widget(SimpleScreen(self, n, f"{n} (coming soon in mobile)"))
         return self.sm
 
