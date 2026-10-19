@@ -1,0 +1,37 @@
+[
+  {
+    "level": "N3",
+    "title": "新しい電車が運行開始",
+    "text": "東京と大阪を結ぶ新しい新幹線が昨日から運行を始めました。この電車はこれまでより速く、東京から大阪まで二時間で着きます。多くの人が利用すると期待されています。",
+    "translation": "A new Shinkansen connecting Tokyo and Osaka began operating yesterday. This train is faster than before, arriving from Tokyo to Osaka in two hours. Many people are expected to use it.",
+    "vocab": ["運行 (うんこう) - operation", "結ぶ (むすぶ) - to connect", "期待 (きたい) - expectation"]
+  },
+  {
+    "level": "N3",
+    "title": "春の桜が満開",
+    "text": "今年の桜は例年より早く咲きました。東京の公園では多くの人が花見を楽しんでいます。家族や友達と一緒に桜の下で食事をする人もいます。",
+    "translation": "This year's cherry blossoms bloomed earlier than usual. Many people are enjoying hanami in Tokyo's parks. Some people eat meals under the cherry blossoms with family and friends.",
+    "vocab": ["満開 (まんかい) - full bloom", "例年 (れいねん) - usual year", "花見 (はなみ) - cherry blossom viewing"]
+  },
+  {
+    "level": "N2",
+    "title": "人工知能の進歩",
+    "text": "最近、人工知能の技術が急速に進歩しています。医療や教育の分野でもAIが活用され始めました。一方で、仕事がなくなることを心配する人もいます。",
+    "translation": "Recently, AI technology has advanced rapidly. AI has begun to be used in fields such as medicine and education. On the other hand, some people worry about losing their jobs.",
+    "vocab": ["人工知能 (じんこうちのう) - artificial intelligence", "急速 (きゅうそく) - rapid", "活用 (かつよう) - utilization"]
+  },
+  {
+    "level": "N2",
+    "title": "環境問題への取り組み",
+    "text": "地球温暖化が進む中、多くの国が環境保護に取り組んでいます。日本でも再生可能エネルギーの利用が増えてきました。個人レベルでも節電やリサイクルが求められています。",
+    "translation": "As global warming progresses, many countries are working on environmental protection. In Japan too, the use of renewable energy has increased. At the individual level, saving electricity and recycling are being demanded.",
+    "vocab": ["地球温暖化 (ちきゅうおんだんか) - global warming", "再生可能 (さいせいかのう) - renewable", "取り組む (とりくむ) - to tackle"]
+  },
+  {
+    "level": "N4",
+    "title": "夏祭り",
+    "text": "今週末、地元の夏祭りがあります。屋台でやきそばやかき氷が売られます。夜には花火が上がります。子どもたちがとても楽しみにしています。",
+    "translation": "This weekend there is a local summer festival. Yakisoba and shaved ice will be sold at stalls. Fireworks will go up at night. The children are very excited.",
+    "vocab": ["屋台 (やたい) - stall", "花火 (はなび) - fireworks", "楽しみ (たのしみ) - looking forward to"]
+  }
+]

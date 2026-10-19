@@ -1,0 +1,10 @@
+dist/
+build/
+__pycache__/
+*.pyc
+*.spec
+data/sensei.db
+assets/openjlpt/.git
+sessions/
+*.zip
+opencode-desktop.log

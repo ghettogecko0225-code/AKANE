@@ -1,0 +1,12 @@
+[
+  {"level": "N5", "speaker": "A", "line": "こんにちは。お元気ですか？", "translation": "Hello. How are you?"},
+  {"level": "N5", "speaker": "B", "line": "はい、元気です。ありがとうございます。", "translation": "Yes, I'm fine. Thank you."},
+  {"level": "N5", "speaker": "A", "line": "今日は何をしますか？", "translation": "What are you doing today?"},
+  {"level": "N5", "speaker": "B", "line": "映画を見に行きます。", "translation": "I'm going to see a movie."},
+  {"level": "N4", "speaker": "A", "line": "この料理、すごく美味しいですね。", "translation": "This food is really delicious, isn't it?"},
+  {"level": "N4", "speaker": "B", "line": "本当ですね。レシピを教えてもらいたいです。", "translation": "Indeed. I'd like you to teach me the recipe."},
+  {"level": "N4", "speaker": "A", "line": "明日の予定はありますか？", "translation": "Do you have plans for tomorrow?"},
+  {"level": "N4", "speaker": "B", "line": "特にありません。何かありますか？", "translation": "Nothing in particular. Is there something?"},
+  {"level": "N3", "speaker": "A", "line": "最近、忙しくてなかなか会えませんね。", "translation": "Recently we've been busy and can't meet much, huh."},
+  {"level": "N3", "speaker": "B", "line": "そうですね。来週の週末はどうですか？", "translation": "That's true. How about next weekend?"}
+]

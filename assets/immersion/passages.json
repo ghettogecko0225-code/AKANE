@@ -1,0 +1,52 @@
+[
+  {
+    "level": "N5",
+    "title": "自己紹介",
+    "text": "はじめまして。私は田中です。日本人です。東京に住んでいます。趣味は音楽を聞くことです。よろしくお願いします。",
+    "translation": "Nice to meet you. I am Tanaka. I am Japanese. I live in Tokyo. My hobby is listening to music. Please treat me well.",
+    "questions": [
+      {"q": "この人はどこに住んでいますか？", "options": ["大阪", "東京", "京都", "名古屋"], "answer": 1},
+      {"q": "趣味は何ですか？", "options": ["スポーツ", "読書", "音楽を聞くこと", "料理"], "answer": 2}
+    ]
+  },
+  {
+    "level": "N5",
+    "title": "買い物",
+    "text": "今日はスーパーに行きました。りんごと牛乳を買いました。りんごは三百円でした。牛乳は百五十円でした。",
+    "translation": "Today I went to the supermarket. I bought apples and milk. The apples were 300 yen. The milk was 150 yen.",
+    "questions": [
+      {"q": "何を買いましたか？", "options": ["パンと水", "りんごと牛乳", "肉と魚", "野菜"], "answer": 1},
+      {"q": "りんごの値段はいくらですか？", "options": ["百円", "二百円", "三百円", "四百円"], "answer": 2}
+    ]
+  },
+  {
+    "level": "N5",
+    "title": "天気",
+    "text": "今日はいい天気です。空は青いです。公園で友達と遊びました。とても楽しかったです。",
+    "translation": "Today the weather is good. The sky is blue. I played with friends at the park. It was very fun.",
+    "questions": [
+      {"q": "どこで遊びましたか？", "options": ["学校", "家", "公園", "駅"], "answer": 2},
+      {"q": "天気はどうでしたか？", "options": ["雨", "雪", "いい天気", "曇り"], "answer": 2}
+    ]
+  },
+  {
+    "level": "N4",
+    "title": "旅行",
+    "text": "先週、京都へ旅行に行きました。古いお寺や神社を見ました。特に金閣寺が素晴らしかったです。また行きたいと思います。",
+    "translation": "Last week I went on a trip to Kyoto. I saw old temples and shrines. Especially Kinkaku-ji was wonderful. I want to go again.",
+    "questions": [
+      {"q": "どこへ旅行に行きましたか？", "options": ["東京", "大阪", "京都", "北海道"], "answer": 2},
+      {"q": "何が素晴らしかったですか？", "options": ["清水寺", "金閣寺", "東大寺", "法隆寺"], "answer": 1}
+    ]
+  },
+  {
+    "level": "N4",
+    "title": "仕事",
+    "text": "私は会社員です。毎日電車で通勤します。仕事は忙しいですが、同僚は親切です。週末は家族と過ごします。",
+    "translation": "I am an office worker. I commute by train every day. Work is busy but colleagues are kind. On weekends I spend time with family.",
+    "questions": [
+      {"q": "どうやって通勤しますか？", "options": ["車", "バス", "電車", "自転車"], "answer": 2},
+      {"q": "週末は何をしますか？", "options": ["仕事", "家族と過ごす", "旅行", "勉強"], "answer": 1}
+    ]
+  }
+]

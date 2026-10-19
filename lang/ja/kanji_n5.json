@@ -1,0 +1,22 @@
+[
+  {"front": "日", "back": "day / sun (nichi, hi)"},
+  {"front": "月", "back": "month / moon (getsu, tsuki)"},
+  {"front": "火", "back": "fire (ka, hi)"},
+  {"front": "水", "back": "water (sui, mizu)"},
+  {"front": "木", "back": "tree / wood (moku, ki)"},
+  {"front": "金", "back": "gold / money (kin, kane)"},
+  {"front": "土", "back": "earth / soil (do, tsuchi)"},
+  {"front": "人", "back": "person (jin, hito)"},
+  {"front": "山", "back": "mountain (san, yama)"},
+  {"front": "川", "back": "river (sen, kawa)"},
+  {"front": "田", "back": "rice field (den, ta)"},
+  {"front": "口", "back": "mouth (kou, kuchi)"},
+  {"front": "目", "back": "eye (moku, me)"},
+  {"front": "耳", "back": "ear (ji, mimi)"},
+  {"front": "手", "back": "hand (shu, te)"},
+  {"front": "足", "back": "foot / leg (soku, ashi)"},
+  {"front": "力", "back": "power (ryoku, chikara)"},
+  {"front": "大", "back": "big (dai, oo)"},
+  {"front": "小", "back": "small (shou, chii)"},
+  {"front": "中", "back": "middle (chuu, naka)"}
+]

@@ -1,0 +1,85 @@
+import os
+import sys
+import time
+import wave
+import threading
+import tempfile
+import pathlib
+
+try:
+    import onnxruntime  # noqa
+except Exception:
+    pass
+try:
+    import faster_whisper  # noqa
+except Exception:
+    pass
+
+import numpy as np
+
+STUDIO = pathlib.Path(r"C:\Users\Universe\Desktop\Hive Pulse Interactive\VIKI\Studio")
+MODELS_DIR = STUDIO / "models"
+PIPER_DIR = MODELS_DIR / "piper"
+JAPANESE_VOICE = "ja_JP-hi_fi_captain-medium"
+
+_piper_cache = {}
+
+
+def _load_piper(name):
+    if name in _piper_cache:
+        return _piper_cache[name]
+    from piper import PiperVoice
+    v = PiperVoice.load(
+        str(PIPER_DIR / f"{name}.onnx"),
+        config_path=str(PIPER_DIR / f"{name}.onnx.json"),
+    )
+    _piper_cache[name] = v
+    return v
+
+
+def synthesize_to_wav(text, out_path, voice_name=JAPANESE_VOICE):
+    v = _load_piper(voice_name)
+    with wave.open(str(out_path), "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(v.config.sample_rate)
+        v.synthesize_wav(text, wf)
+
+
+_whisper_model = None
+
+
+def get_transcriber():
+    global _whisper_model
+    if _whisper_model is None:
+        from faster_whisper import WhisperModel
+        _whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
+    return _whisper_model
+
+
+def transcribe_samples(samples_f32):
+    m = get_transcriber()
+    segments, _ = m.transcribe(samples_f32, language="ja", beam_size=1)
+    return " ".join(seg.text.strip() for seg in segments).strip()
+
+
+def play_wav(path):
+    import sounddevice as sd
+    with wave.open(path, "rb") as wf:
+        rate = wf.getframerate()
+        data = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
+    stream = sd.OutputStream(samplerate=rate, channels=1, dtype="int16")
+    stream.start()
+    try:
+        for i in range(0, len(data), 4096):
+            stream.write(data[i:i + 4096].reshape(-1, 1))
+    finally:
+        stream.stop()
+        stream.close()
+
+
+def record_samples(seconds=4.0, sample_rate=16000):
+    import sounddevice as sd
+    rec = sd.rec(int(seconds * sample_rate), samplerate=sample_rate, channels=1, dtype="float32")
+    sd.wait()
+    return rec[:, 0]

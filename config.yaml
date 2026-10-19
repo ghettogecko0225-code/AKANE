@@ -1,0 +1,8 @@
+hives:
+  - code: ja
+    name: Japanese
+    data_dir: lang/ja
+    stt_language: ja
+    tts_voice: null
+    translation: null
+default_hive: ja
