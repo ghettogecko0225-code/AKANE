@@ -3,6 +3,7 @@ build/
 __pycache__/
 *.pyc
 *.spec
+!buildozer.spec
 data/sensei.db
 assets/openjlpt/.git
 sessions/
