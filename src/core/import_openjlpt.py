@@ -6,6 +6,9 @@ LEVELS = ["n5", "n4", "n3", "n2", "n1"]
 
 
 def _data_dir(root):
+    packaged = os.path.join(root, "assets", "jlpt")
+    if os.path.isdir(packaged):
+        return packaged
     return os.path.join(root, "assets", "openjlpt", "data", "json")
 
 

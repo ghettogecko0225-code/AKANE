@@ -11,8 +11,15 @@ def load_passages(root):
         return json.load(f)
 
 
+def _vocab_dir(root):
+    packaged = os.path.join(root, "assets", "jlpt", "vocab")
+    if os.path.isdir(packaged):
+        return packaged
+    return os.path.join(root, "assets", "openjlpt", "data", "json", "vocab")
+
+
 def listening_items(root, level=None, count=10):
-    base = os.path.join(root, "assets", "openjlpt", "data", "json", "vocab")
+    base = _vocab_dir(root)
     items = []
     levels = [level.lower()] if level else ["n5", "n4", "n3", "n2", "n1"]
     for lvl in levels:

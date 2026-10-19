@@ -1,12 +1,26 @@
+import json
 import pathlib
-import ctranslate2
-import sentencepiece
+import urllib.parse
+import urllib.request
 
 from core.paths import models_root
+
+try:
+    import ctranslate2
+    import sentencepiece
+    _HAS_CT2 = True
+except Exception:
+    _HAS_CT2 = False
 
 TRANS_DIR = models_root() / "translation"
 
 _MODELS = {}
+
+
+def has_local_models():
+    if not _HAS_CT2:
+        return False
+    return (TRANS_DIR / "ja-en").is_dir() or (TRANS_DIR / "en-ja").is_dir()
 
 
 def _load(direction):
@@ -31,13 +45,34 @@ def _is_japanese(text):
     return False
 
 
+def _translate_local(text, direction):
+    tr, sp_src, sp_tgt = _load(direction)
+    toks = sp_src.encode(text, out_type=str) + ["</s>"]
+    res = tr.translate_batch([toks])
+    return sp_tgt.decode(res[0].hypotheses[0])
+
+
+def _translate_online(text, direction):
+    target = "en" if direction == "ja-en" else "ja"
+    q = urllib.parse.quote(text)
+    url = (
+        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto"
+        f"&tl={target}&dt=t&q={q}"
+    )
+    with urllib.request.urlopen(url, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return "".join(part[0] for part in data[0] if part and part[0])
+
+
 def translate(text, direction=None):
     text = (text or "").strip()
     if not text:
         return ""
     if direction is None:
         direction = "ja-en" if _is_japanese(text) else "en-ja"
-    tr, sp_src, sp_tgt = _load(direction)
-    toks = sp_src.encode(text, out_type=str) + ["</s>"]
-    res = tr.translate_batch([toks])
-    return sp_tgt.decode(res[0].hypotheses[0])
+    if _HAS_CT2 and has_local_models():
+        try:
+            return _translate_local(text, direction)
+        except Exception:
+            pass
+    return _translate_online(text, direction)

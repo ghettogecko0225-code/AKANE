@@ -1,4 +1,8 @@
+import os
 import sys
+import threading
+import tempfile
+import wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,8 +27,11 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.spinner import Spinner
 from kivy.core.window import Window
 from kivy.core.text import LabelBase
+
 try:
-    LabelBase.register(name="Roboto", fn_regular=str(ROOT / "assets" / "fonts" / "msgothic.ttc"))
+    LabelBase.register(
+        name="Roboto", fn_regular=str(ROOT / "assets" / "fonts" / "msgothic.ttc")
+    )
 except Exception:
     pass
 
@@ -33,226 +40,271 @@ from core.flashcards import FlashCardEngine
 from core.progress import ProgressTracker
 from core.seed import load_deck_from_json
 from core.import_openjlpt import import_all as import_openjlpt_all
-try:
-    from core.translator import translate
-    _HAS_TRANSLATE = True
-except Exception:
-    _HAS_TRANSLATE = False
-    def translate(*a, **k):
-        raise RuntimeError("translation not available")
-try:
-    from core.voice import synthesize_to_wav, transcribe_samples, record_samples
-    _HAS_VOICE = True
-except Exception:
-    _HAS_VOICE = False
+from core.translator import translate
 from core.immersion import load_passages, listening_items
 from core.speaking import score_pronunciation
-from core.immersion import listening_items as li
+from core.workbook import WorkbookEngine
+from core.scheduler import Scheduler
 
-import os
-import threading
-import tempfile
-import wave
+from core import android_speech
+
+ANDROID = android_speech.is_available()
+
+TTS = None
+if ANDROID:
+    try:
+        TTS = android_speech.AndroidTTS("ja")
+        TTS.set_language("ja")
+    except Exception:
+        TTS = None
 
 
-class HomeScreen(Screen):
-    def __init__(self, app_ref, **kwargs):
+def _tts_speak(text):
+    if TTS is None:
+        return False
+    try:
+        return TTS.speak(text)
+    except Exception:
+        return False
+
+
+def _tts_available():
+    return TTS is not None
+
+
+class BaseScreen(Screen):
+    def __init__(self, app_ref, title, **kwargs):
         super().__init__(**kwargs)
         self.app_ref = app_ref
-        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
-        layout.add_widget(Label(text="Japanese Sensei AI", font_size=24))
-        for name in ["Flashcards", "Translate", "Voice", "Workbook", "Reading", "Listening", "Speaking", "News", "Shadowing", "Progress"]:
-            btn = Button(text=name, size_hint=(1, 0.12))
+        self.box = BoxLayout(orientation="vertical", padding=16, spacing=8)
+        self.title_label = Label(text=title, font_size=20, size_hint=(1, 0.08))
+        self.box.add_widget(self.title_label)
+        self.add_widget(self.box)
+
+    def add_home_button(self):
+        btn = Button(text="Home", size_hint=(1, 0.09))
+        btn.bind(on_press=lambda x: self.app_ref.go("Home"))
+        self.box.add_widget(btn)
+
+
+class HomeScreen(BaseScreen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Japanese Sensei AI", **kwargs)
+        self.deck_items = []
+        self.spinner = Spinner(text="Choose deck", values=self.deck_items, size_hint=(1, 0.09))
+        self.spinner.bind(text=self.on_deck)
+        self.box.add_widget(self.spinner)
+        for name in ["Flashcards", "Voice", "Translate", "Workbook", "Reading",
+                     "Listening", "Speaking", "News", "Shadowing", "Progress"]:
+            btn = Button(text=name, size_hint=(1, 0.075))
             btn.bind(on_press=lambda x, n=name: self.app_ref.go(n))
-            layout.add_widget(btn)
-        self.add_widget(layout)
+            self.box.add_widget(btn)
+        self.status = Label(text="", size_hint=(1, 0.07))
+        self.box.add_widget(self.status)
+        self.refresh_decks()
+
+    def refresh_decks(self):
+        self.deck_items = []
+        for d in self.app_ref.engine.list_decks():
+            count = self.app_ref.engine.cards_count(d["id"])
+            self.deck_items.append(f"{d['name']} ({count})")
+        if self.deck_items:
+            self.spinner.values = self.deck_items
+            if not self.spinner.text or self.spinner.text not in self.deck_items:
+                self.spinner.text = self.deck_items[0]
+                self.on_deck(self.spinner.text)
+
+    def on_deck(self, *a):
+        text = a[-1] if a else ""
+        for d in self.app_ref.engine.list_decks():
+            if text.startswith(d["name"]):
+                self.app_ref.deck_id = d["id"]
+                return
 
 
-class FlashcardScreen(Screen):
+class FlashcardScreen(BaseScreen):
     def __init__(self, app_ref, **kwargs):
-        super().__init__(**kwargs)
-        self.app_ref = app_ref
+        super().__init__(app_ref, "Flashcards", **kwargs)
         self.current = None
-        self.flipped = False
-        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
-        self.status = Label(text="Loading...", size_hint=(1, 0.1))
-        layout.add_widget(self.status)
-        self.card_label = Label(text="", font_size=48, size_hint=(1, 0.4))
-        layout.add_widget(self.card_label)
-        btn_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.12), spacing=5)
+        self.status = Label(text="", size_hint=(1, 0.08))
+        self.box.add_widget(self.status)
+        self.card = Label(text="", font_size=52, size_hint=(1, 0.32))
+        self.box.add_widget(self.card)
+        self.back = Label(text="", font_size=22, size_hint=(1, 0.16))
+        self.box.add_widget(self.back)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
         self.flip_btn = Button(text="Show Answer")
         self.flip_btn.bind(on_press=self.flip)
-        btn_row.add_widget(self.flip_btn)
+        row.add_widget(self.flip_btn)
         self.next_btn = Button(text="Next")
         self.next_btn.bind(on_press=self.next_card)
-        btn_row.add_widget(self.next_btn)
-        layout.add_widget(btn_row)
-        rate_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.12), spacing=3)
+        row.add_widget(self.next_btn)
+        self.box.add_widget(row)
+        rate_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=2)
         for q in range(6):
             b = Button(text=str(q))
             b.bind(on_press=lambda x, qq=q: self.rate(qq))
             rate_row.add_widget(b)
-        layout.add_widget(rate_row)
-        back_btn = Button(text="Home", size_hint=(1, 0.1))
-        back_btn.bind(on_press=lambda x: self.app_ref.go("Home"))
-        layout.add_widget(back_btn)
-        self.add_widget(layout)
+        self.box.add_widget(rate_row)
+        self.add_home_button()
 
     def on_enter(self):
         self.next_card()
 
     def next_card(self, *a):
-        self.flipped = False
-        due = self.app_ref.engine.due_cards(self.app_ref.deck_id, limit=1)
+        deck_id = self.app_ref.deck_id
+        if deck_id is None:
+            self.card.text = "No deck"
+            return
+        self.back.text = ""
+        due = self.app_ref.engine.due_cards(deck_id, limit=1)
         if not due:
-            self.card_label.text = "No cards due!"
             self.current = None
+            self.card.text = "No cards due!"
+            self.status.text = f"Reviewed: {self.app_ref.session_count}"
             return
         self.current = due[0]
-        self.card_label.text = self.current["front"]
-        self.status.text = f"Due: {len(self.app_ref.engine.due_cards(self.app_ref.deck_id))}"
+        self.card.text = self.current["front"]
+        remaining = len(self.app_ref.engine.due_cards(deck_id))
+        self.status.text = f"Due: {remaining}"
 
     def flip(self, *a):
         if self.current is None:
             return
-        self.flipped = True
-        self.card_label.text = self.current["back"] + "\n" + (self.current.get("hint", "") or "")
+        self.back.text = self.current["back"]
+        hint = self.current.get("hint") or ""
+        if hint:
+            self.back.text += "\n" + hint
 
     def rate(self, q):
         if self.current is None:
             return
         self.app_ref.engine.review(self.current["id"], q)
-        self.app_ref.progress.record_review("ja", q >= 3)
+        self.app_ref.progress.record_review(self.app_ref.lang, q >= 3)
+        self.app_ref.session_count += 1
         self.next_card()
 
 
-class TranslateScreen(Screen):
+class VoiceScreen(BaseScreen):
     def __init__(self, app_ref, **kwargs):
-        super().__init__(**kwargs)
-        self.app_ref = app_ref
-        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
-        layout.add_widget(Label(text="Translator", font_size=20))
+        super().__init__(app_ref, "Voice (Japanese)", **kwargs)
         self.input = TextInput(size_hint=(1, 0.3), multiline=True)
-        layout.add_widget(self.input)
+        self.box.add_widget(self.input)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
+        speak_btn = Button(text="Speak")
+        speak_btn.bind(on_press=self.speak)
+        row.add_widget(speak_btn)
+        listen_btn = Button(text="Listen")
+        listen_btn.bind(on_press=self.listen)
+        row.add_widget(listen_btn)
+        self.box.add_widget(row)
+        self.heard = Label(text="", size_hint=(1, 0.12))
+        self.box.add_widget(self.heard)
+        self.status = Label(text="", size_hint=(1, 0.1))
+        self.box.add_widget(self.status)
+        self.add_home_button()
+
+    def speak(self, *a):
+        text = self.input.text.strip()
+        if not text:
+            return
+        if _tts_speak(text):
+            self.status.text = "Speaking..."
+        else:
+            self.status.text = "TTS unavailable on this device"
+
+    def listen(self, *a):
+        if not ANDROID:
+            self.status.text = "Speech recognition is Android-only"
+            return
+        self.status.text = "Listening..."
+
+        def on_result(text):
+            self.heard.text = f"You said: {text}"
+            self.status.text = "Heard"
+            if text:
+                self.input.text = text
+
+        def on_error(code):
+            self.status.text = f"Listen error ({code})"
+
+        try:
+            stt = android_speech.AndroidSTT("ja")
+            stt.listen(on_result, on_error)
+        except Exception as e:
+            self.status.text = f"Listen error: {e}"
+
+
+class TranslateScreen(BaseScreen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Translator", **kwargs)
+        self.input = TextInput(size_hint=(1, 0.28), multiline=True)
+        self.box.add_widget(self.input)
+        self.spinner = Spinner(text="Auto", values=["Auto", "Japanese -> English", "English -> Japanese"])
+        self.spinner.size_hint = (1, 0.09)
+        self.box.add_widget(self.spinner)
         btn = Button(text="Translate", size_hint=(1, 0.1))
         btn.bind(on_press=self.do_translate)
-        layout.add_widget(btn)
-        self.output = TextInput(size_hint=(1, 0.3), multiline=True, readonly=True)
-        layout.add_widget(self.output)
-        back_btn = Button(text="Home", size_hint=(1, 0.1))
-        back_btn.bind(on_press=lambda x: self.app_ref.go("Home"))
-        layout.add_widget(back_btn)
-        self.add_widget(layout)
+        self.box.add_widget(btn)
+        self.output = TextInput(size_hint=(1, 0.28), multiline=True, readonly=True)
+        self.box.add_widget(self.output)
+        self.status = Label(text="", size_hint=(1, 0.08))
+        self.box.add_widget(self.status)
+        self.add_home_button()
 
     def do_translate(self, *a):
         text = self.input.text.strip()
         if not text:
             return
-        try:
-            out = translate(text)
-            self.output.text = out
-        except Exception as e:
-            self.output.text = f"Error: {e}"
+        choice = self.spinner.text
+        direction = None
+        if choice.startswith("Japanese"):
+            direction = "ja-en"
+        elif choice.startswith("English"):
+            direction = "en-ja"
+        self.status.text = "Translating..."
+
+        def worker():
+            try:
+                out = translate(text, direction)
+                self.output.text = out
+                self.status.text = "Done"
+            except Exception as e:
+                self.status.text = f"Error: {e}"
+
+        threading.Thread(target=worker, daemon=True).start()
 
 
-class VoiceScreen(Screen):
+class WorkbookScreen(BaseScreen):
     def __init__(self, app_ref, **kwargs):
-        super().__init__(**kwargs)
-        self.app_ref = app_ref
-        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
-        layout.add_widget(Label(text="Voice (Japanese)", font_size=20))
-        self.text_input = TextInput(size_hint=(1, 0.3), multiline=True)
-        layout.add_widget(self.text_input)
-        btn_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.12), spacing=5)
-        speak_btn = Button(text="Speak")
-        speak_btn.bind(on_press=self.speak)
-        btn_row.add_widget(speak_btn)
-        listen_btn = Button(text="Listen 4s")
-        listen_btn.bind(on_press=self.listen)
-        btn_row.add_widget(listen_btn)
-        layout.add_widget(btn_row)
-        self.status = Label(text="Ready", size_hint=(1, 0.1))
-        layout.add_widget(self.status)
-        back_btn = Button(text="Home", size_hint=(1, 0.1))
-        back_btn.bind(on_press=lambda x: self.app_ref.go("Home"))
-        layout.add_widget(back_btn)
-        self.add_widget(layout)
-
-    def speak(self, *a):
-        text = self.text_input.text.strip()
-        if not text:
-            return
-        threading.Thread(target=self._speak, args=(text,), daemon=True).start()
-
-    def _speak(self, text):
-        try:
-            d = tempfile.mkdtemp()
-            path = os.path.join(d, "tts.wav")
-            synthesize_to_wav(text, path)
-            # play
-            import numpy as np
-            import sounddevice as sd
-            with wave.open(path, "rb") as wf:
-                rate = wf.getframerate()
-                data = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
-            stream = sd.OutputStream(samplerate=rate, channels=1, dtype="int16")
-            stream.start()
-            for i in range(0, len(data), 4096):
-                stream.write(data[i:i + 4096].reshape(-1, 1))
-            stream.stop()
-            stream.close()
-            self.status.text = "Done"
-        except Exception as e:
-            self.status.text = f"Error: {e}"
-
-    def listen(self, *a):
-        threading.Thread(target=self._listen, daemon=True).start()
-
-    def _listen(self):
-        try:
-            self.status.text = "Listening..."
-            samples = record_samples(4.0)
-            text = transcribe_samples(samples)
-            self.text_input.text = text
-            self.status.text = "Heard"
-        except Exception as e:
-            self.status.text = f"Error: {e}"
-
-
-class WorkbookScreen(Screen):
-    def __init__(self, app_ref, **kwargs):
-        super().__init__(**kwargs)
-        self.app_ref = app_ref
+        super().__init__(app_ref, "Workbook", **kwargs)
         self.drill = []
         self.index = 0
         self.results = []
-        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
-        layout.add_widget(Label(text="Workbook", font_size=20))
-        self.prompt = Label(text="Press Start", font_size=32, size_hint=(1, 0.3))
-        layout.add_widget(self.prompt)
-        self.answer = TextInput(size_hint=(1, 0.15), multiline=False)
-        layout.add_widget(self.answer)
-        btn_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.12), spacing=5)
+        self.prompt = Label(text="Press Start", font_size=34, size_hint=(1, 0.25))
+        self.box.add_widget(self.prompt)
+        self.answer = TextInput(size_hint=(1, 0.12), multiline=False)
+        self.box.add_widget(self.answer)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
         start_btn = Button(text="Start")
         start_btn.bind(on_press=self.start)
-        btn_row.add_widget(start_btn)
+        row.add_widget(start_btn)
         submit_btn = Button(text="Submit")
         submit_btn.bind(on_press=self.submit)
-        btn_row.add_widget(submit_btn)
-        layout.add_widget(btn_row)
+        row.add_widget(submit_btn)
+        self.box.add_widget(row)
         self.feedback = Label(text="", size_hint=(1, 0.1))
-        layout.add_widget(self.feedback)
+        self.box.add_widget(self.feedback)
         self.score = Label(text="", size_hint=(1, 0.1))
-        layout.add_widget(self.score)
-        back_btn = Button(text="Home", size_hint=(1, 0.1))
-        back_btn.bind(on_press=lambda x: self.app_ref.go("Home"))
-        layout.add_widget(back_btn)
-        self.add_widget(layout)
+        self.box.add_widget(self.score)
+        self.add_home_button()
 
     def start(self, *a):
-        from core.workbook import WorkbookEngine
+        deck_id = self.app_ref.deck_id
+        if deck_id is None:
+            return
         wb = WorkbookEngine(self.app_ref.engine)
-        self.drill = wb.make_drill(self.app_ref.deck_id, count=10)
+        self.drill = wb.make_drill(deck_id, count=10)
         if not self.drill:
             self.prompt.text = "No cards"
             return
@@ -262,7 +314,6 @@ class WorkbookScreen(Screen):
 
     def show_current(self):
         if self.index >= len(self.drill):
-            from core.workbook import WorkbookEngine
             s = WorkbookEngine.score(self.results)
             self.prompt.text = "Done"
             self.score.text = f"Score: {s['correct']}/{s['total']} ({s['percent']}%)"
@@ -274,7 +325,6 @@ class WorkbookScreen(Screen):
     def submit(self, *a):
         if self.index >= len(self.drill):
             return
-        from core.workbook import WorkbookEngine
         d = self.drill[self.index]
         ok = WorkbookEngine.check(self.answer.text, d["answer"])
         self.results.append(ok)
@@ -283,50 +333,41 @@ class WorkbookScreen(Screen):
         self.show_current()
 
 
-class ReadingScreen(Screen):
+class ReadingScreen(BaseScreen):
     def __init__(self, app_ref, **kwargs):
-        super().__init__(**kwargs)
-        self.app_ref = app_ref
+        super().__init__(app_ref, "Reading", **kwargs)
         self.passages = load_passages(str(app_ref.root_path))
         self.current = None
         self.showing = False
-        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
-        layout.add_widget(Label(text="Reading", font_size=20))
-        self.title = Label(text="", size_hint=(1, 0.1))
-        layout.add_widget(self.title)
-        self.text_area = Label(text="", size_hint=(1, 0.5))
+        self.text_area = Label(text="", size_hint=(1, 0.45))
         self.text_area.text_size = (Window.width - 40, None)
-        layout.add_widget(self.text_area)
-        btn_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.12), spacing=5)
+        self.box.add_widget(self.text_area)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
         new_btn = Button(text="New")
         new_btn.bind(on_press=self.new_passage)
-        btn_row.add_widget(new_btn)
-        tog_btn = Button(text="Translate")
+        row.add_widget(new_btn)
+        tog_btn = Button(text="Translation")
         tog_btn.bind(on_press=self.toggle)
-        btn_row.add_widget(tog_btn)
-        layout.add_widget(btn_row)
+        row.add_widget(tog_btn)
+        self.box.add_widget(row)
         self.q_label = Label(text="", size_hint=(1, 0.2))
-        layout.add_widget(self.q_label)
-        back_btn = Button(text="Home", size_hint=(1, 0.1))
-        back_btn.bind(on_press=lambda x: self.app_ref.go("Home"))
-        layout.add_widget(back_btn)
-        self.add_widget(layout)
+        self.box.add_widget(self.q_label)
+        self.add_home_button()
         self.new_passage()
 
     def new_passage(self, *a):
         import random
-        pool = self.passages
-        if not pool:
-            self.title.text = "No passages"
+        if not self.passages:
+            self.title_label.text = "No passages"
             return
-        self.current = random.choice(pool)
+        self.current = random.choice(self.passages)
         self.showing = False
-        self.title.text = f"{self.current['title']} ({self.current['level']})"
+        self.title_label.text = f"{self.current['title']} ({self.current['level']})"
         self.text_area.text = self.current["text"]
         qs = self.current.get("questions", [])
         if qs:
             q = qs[0]
-            self.q_label.text = q["q"] + "\n" + " / ".join(q["options"])
+            self.q_label.text = q["q"] + "\n" + "  ".join(q["options"])
 
     def toggle(self, *a):
         if self.current is None:
@@ -339,61 +380,309 @@ class ReadingScreen(Screen):
             self.showing = True
 
 
-class SimpleScreen(Screen):
-    def __init__(self, app_ref, name, message, **kwargs):
-        super().__init__(**kwargs)
-        self.name = name
-        layout = BoxLayout(orientation="vertical", padding=20, spacing=10)
-        layout.add_widget(Label(text=name, font_size=20))
-        layout.add_widget(Label(text=message, size_hint=(1, 0.8)))
-        back_btn = Button(text="Home", size_hint=(1, 0.1))
-        back_btn.bind(on_press=lambda x: app_ref.go("Home"))
-        layout.add_widget(back_btn)
-        self.add_widget(layout)
+class ListeningScreen(BaseScreen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Listening (type what you hear)", **kwargs)
+        self.current = None
+        self.play_btn = Button(text="Play", size_hint=(1, 0.1))
+        self.play_btn.bind(on_press=self.play)
+        self.box.add_widget(self.play_btn)
+        self.input = TextInput(size_hint=(1, 0.12), multiline=False)
+        self.box.add_widget(self.input)
+        btn = Button(text="Check", size_hint=(1, 0.1))
+        btn.bind(on_press=self.check)
+        self.box.add_widget(btn)
+        self.result = Label(text="", size_hint=(1, 0.16))
+        self.box.add_widget(self.result)
+        self.status = Label(text="", size_hint=(1, 0.09))
+        self.box.add_widget(self.status)
+        self.add_home_button()
+        self.new_sentence()
+
+    def new_sentence(self, *a):
+        items = listening_items(str(self.app_ref.root_path), "n5", count=20)
+        if not items:
+            items = listening_items(str(self.app_ref.root_path), None, count=20)
+        if not items:
+            self.status.text = "No sentences available"
+            return
+        import random
+        self.current = random.choice(items)
+        self.input.text = ""
+        self.result.text = ""
+        self.status.text = "Press Play, then type what you hear"
+
+    def play(self, *a):
+        if self.current is None:
+            return
+        if _tts_speak(self.current["ja"]):
+            self.status.text = "Playing..."
+        else:
+            self.status.text = "TTS unavailable on this device"
+
+    def check(self, *a):
+        if self.current is None:
+            return
+        u = self.input.text.strip()
+        c = self.current["ja"].strip()
+
+        def norm(s):
+            return "".join(ch for ch in s if ch not in " 、。！？")
+
+        if norm(u) == norm(c):
+            self.result.text = "Correct!"
+        else:
+            self.result.text = f"Not quite. Original: {c}"
+        self.status.text = self.current["en"]
+
+
+class SpeakingScreen(BaseScreen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Speaking (say the sentence)", **kwargs)
+        self.current = None
+        self.target = Label(text="", font_size=28, size_hint=(1, 0.2))
+        self.box.add_widget(self.target)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
+        new_btn = Button(text="New")
+        new_btn.bind(on_press=self.new_sentence)
+        row.add_widget(new_btn)
+        rec_btn = Button(text="Record")
+        rec_btn.bind(on_press=self.record)
+        row.add_widget(rec_btn)
+        self.box.add_widget(row)
+        self.heard = Label(text="", size_hint=(1, 0.14))
+        self.box.add_widget(self.heard)
+        self.result = Label(text="", size_hint=(1, 0.12))
+        self.box.add_widget(self.result)
+        self.status = Label(text="", size_hint=(1, 0.09))
+        self.box.add_widget(self.status)
+        self.add_home_button()
+        self.new_sentence()
+
+    def new_sentence(self, *a):
+        items = listening_items(str(self.app_ref.root_path), "n5", count=20)
+        if not items:
+            items = listening_items(str(self.app_ref.root_path), None, count=20)
+        if not items:
+            self.status.text = "No sentences available"
+            return
+        import random
+        self.current = random.choice(items)
+        self.target.text = self.current["ja"]
+        self.heard.text = ""
+        self.result.text = ""
+        self.status.text = ""
+
+    def record(self, *a):
+        if self.current is None:
+            return
+        if not ANDROID:
+            self.status.text = "Speech recognition is Android-only"
+            return
+        self.status.text = "Listening..."
+
+        def on_result(text):
+            self.heard.text = f"You said: {text}"
+            r = score_pronunciation(self.current["ja"], text)
+            self.result.text = f"Accuracy: {r['accuracy']}%"
+            self.status.text = ""
+
+        def on_error(code):
+            self.status.text = f"Record error ({code})"
+
+        try:
+            stt = android_speech.AndroidSTT("ja")
+            stt.listen(on_result, on_error)
+        except Exception as e:
+            self.status.text = f"Record error: {e}"
+
+
+class NewsScreen(BaseScreen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "News", **kwargs)
+        import json
+        path = os.path.join(str(app_ref.root_path), "assets", "immersion", "articles.json")
+        with open(path, encoding="utf-8") as f:
+            self.articles = json.load(f)
+        self.current = None
+        self.showing = False
+        self.text_area = Label(text="", size_hint=(1, 0.42))
+        self.text_area.text_size = (Window.width - 40, None)
+        self.box.add_widget(self.text_area)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
+        new_btn = Button(text="New")
+        new_btn.bind(on_press=self.new_article)
+        row.add_widget(new_btn)
+        tog_btn = Button(text="Translation")
+        tog_btn.bind(on_press=self.toggle)
+        row.add_widget(tog_btn)
+        self.box.add_widget(row)
+        self.vocab = Label(text="", size_hint=(1, 0.2))
+        self.box.add_widget(self.vocab)
+        self.add_home_button()
+        self.new_article()
+
+    def new_article(self, *a):
+        import random
+        if not self.articles:
+            return
+        self.current = random.choice(self.articles)
+        self.showing = False
+        self.title_label.text = f"{self.current['title']} ({self.current['level']})"
+        self.text_area.text = self.current["text"]
+        self.vocab.text = "\n".join(self.current.get("vocab", []))
+
+    def toggle(self, *a):
+        if self.current is None:
+            return
+        if self.showing:
+            self.text_area.text = self.current["text"]
+            self.showing = False
+        else:
+            self.text_area.text = self.current["text"] + "\n\n" + self.current["translation"]
+            self.showing = True
+
+
+class ShadowingScreen(BaseScreen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Shadowing (listen & repeat)", **kwargs)
+        import json
+        path = os.path.join(str(app_ref.root_path), "assets", "immersion", "dialogues.json")
+        with open(path, encoding="utf-8") as f:
+            self.dialogues = json.load(f)
+        self.current = None
+        self.line = Label(text="", font_size=26, size_hint=(1, 0.2))
+        self.box.add_widget(self.line)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
+        new_btn = Button(text="New")
+        new_btn.bind(on_press=self.new_line)
+        row.add_widget(new_btn)
+        play_btn = Button(text="Play")
+        play_btn.bind(on_press=self.play)
+        row.add_widget(play_btn)
+        self.box.add_widget(row)
+        self.translation = Label(text="", size_hint=(1, 0.14))
+        self.box.add_widget(self.translation)
+        self.status = Label(text="", size_hint=(1, 0.09))
+        self.box.add_widget(self.status)
+        self.add_home_button()
+        self.new_line()
+
+    def new_line(self, *a):
+        import random
+        if not self.dialogues:
+            return
+        self.current = random.choice(self.dialogues)
+        self.title_label.text = f"Speaker {self.current['speaker']}"
+        self.line.text = self.current["line"]
+        self.translation.text = self.current["translation"]
+
+    def play(self, *a):
+        if self.current is None:
+            return
+        if _tts_speak(self.current["line"]):
+            self.status.text = "Playing..."
+        else:
+            self.status.text = "TTS unavailable on this device"
+
+
+class ProgressScreen(BaseScreen):
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Progress", **kwargs)
+        self.stats = Label(text="", size_hint=(1, 0.16))
+        self.box.add_widget(self.stats)
+        self.chart = Label(text="", size_hint=(1, 0.4))
+        self.box.add_widget(self.chart)
+        self.forecast = Label(text="", size_hint=(1, 0.2))
+        self.box.add_widget(self.forecast)
+        self.add_home_button()
+
+    def on_enter(self):
+        self.refresh()
+
+    def refresh(self):
+        lang = self.app_ref.lang
+        streak = self.app_ref.progress.streak(lang)
+        total = self.app_ref.progress.total_cards(lang)
+        mastery = self.app_ref.progress.mastery(self.app_ref.engine, self.app_ref.deck_id) if self.app_ref.deck_id else {"mastered": 0, "total": 0, "percent": 0}
+        self.stats.text = f"Streak: {streak} days\nReviewed: {total}\nMastery: {mastery['mastered']}/{mastery['total']} ({mastery['percent']}%)"
+        daily = self.app_ref.progress.daily(lang=lang, days=14)
+        by_date = {r["date"]: r["cards"] for r in daily}
+        import datetime
+        today = datetime.date.today()
+        bars = []
+        for i in range(13, -1, -1):
+            d = (today - datetime.timedelta(days=i)).isoformat()
+            n = by_date.get(d, 0)
+            bars.append("▇" * min(n, 20))
+        self.chart.text = "Last 14 days\n" + "\n".join(bars)
+        if self.app_ref.deck_id:
+            sched = Scheduler(self.app_ref.engine)
+            fc = sched.forecast(self.app_ref.deck_id, days=5)
+            self.forecast.text = "Due next 5 days\n" + "\n".join(f"{f['date']}: {f['count']}" for f in fc)
 
 
 class SenseiApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.root_path = ROOT
-        db_path = ROOT / "data" / "sensei.db"
-        self.conn = connect(str(db_path))
+        self.lang = "ja"
+        self.session_count = 0
+        data_dir = ROOT / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        self.conn = connect(str(data_dir / "sensei.db"))
         self.engine = FlashCardEngine(self.conn)
         self.progress = ProgressTracker(self.conn)
         existing = {d["name"] for d in self.engine.list_decks()}
-        if not existing:
-            try:
-                load_deck_from_json(self.engine, "ja", ROOT / "lang" / "ja" / "hiragana.json", "Hiragana")
-            except Exception:
-                pass
-        self.deck_id = None
+        for name, fname in [("Hiragana", "hiragana.json"), ("Katakana", "katakana.json"), ("Kanji Starter", "kanji_n5.json")]:
+            if name not in existing:
+                try:
+                    load_deck_from_json(self.engine, "ja", ROOT / "lang" / "ja" / fname, name)
+                except Exception:
+                    pass
         decks = self.engine.list_decks()
-        if decks:
-            self.deck_id = decks[0]["id"]
+        self.deck_id = decks[0]["id"] if decks else None
 
     def build(self):
         self.sm = ScreenManager()
         self.sm.add_widget(HomeScreen(self, name="Home"))
         self.sm.add_widget(FlashcardScreen(self, name="Flashcards"))
-        if _HAS_TRANSLATE:
-            self.sm.add_widget(TranslateScreen(self, name="Translate"))
-        else:
-            self.sm.add_widget(SimpleScreen(self, "Translate", "Translation not available on this device."))
-        if _HAS_VOICE:
-            self.sm.add_widget(VoiceScreen(self, name="Voice"))
-        else:
-            self.sm.add_widget(SimpleScreen(self, "Voice", "Voice not available on this device."))
+        self.sm.add_widget(VoiceScreen(self, name="Voice"))
+        self.sm.add_widget(TranslateScreen(self, name="Translate"))
         self.sm.add_widget(WorkbookScreen(self, name="Workbook"))
         self.sm.add_widget(ReadingScreen(self, name="Reading"))
-        for n in ["Listening", "Speaking", "News", "Shadowing", "Progress"]:
-            self.sm.add_widget(SimpleScreen(self, n, f"{n} (coming soon in mobile)"))
+        self.sm.add_widget(ListeningScreen(self, name="Listening"))
+        self.sm.add_widget(SpeakingScreen(self, name="Speaking"))
+        self.sm.add_widget(NewsScreen(self, name="News"))
+        self.sm.add_widget(ShadowingScreen(self, name="Shadowing"))
+        self.sm.add_widget(ProgressScreen(self, name="Progress"))
+        threading.Thread(target=self._import_full_content, daemon=True).start()
         return self.sm
+
+    def _import_full_content(self):
+        jlpt_dir = ROOT / "assets" / "jlpt"
+        if not jlpt_dir.is_dir():
+            return
+        if any(d["name"] == "Vocab N5" for d in self.engine.list_decks()):
+            return
+        try:
+            import_openjlpt_all(self.engine, str(ROOT))
+        except Exception:
+            pass
 
     def go(self, name):
         self.sm.current = name
         screen = self.sm.get_screen(name)
         if hasattr(screen, "on_enter"):
-            screen.on_enter()
+            try:
+                screen.on_enter()
+            except Exception:
+                pass
+        if name == "Home":
+            try:
+                self.sm.get_screen("Home").refresh_decks()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
