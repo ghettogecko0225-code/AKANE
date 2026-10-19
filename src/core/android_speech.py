@@ -65,10 +65,14 @@ def _make_tts_listener():
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
             self.status = -1
+            self.owner = None
 
         @java_method("(I)V")
         def onInit(self, status):
             self.status = int(status)
+            _log(f"TextToSpeech onInit status={self.status}")
+            if self.owner is not None:
+                self.owner._on_init(self.status)
 
     return TtsInitListener()
 
@@ -88,10 +92,19 @@ class AndroidTTS:
         self._listener = None
         self._lock = threading.Lock()
         self.last_error = ""
+        self._ready = False
+        self._pending = None
 
     @property
     def ready(self):
-        return self._tts is not None
+        return self._ready
+
+    def _on_init(self, status):
+        self._ready = (status == 0)
+        if self._ready and self._pending:
+            text = self._pending
+            self._pending = None
+            self._speak_now(text)
 
     def _ensure(self):
         if self._tts is not None:
@@ -103,11 +116,12 @@ class AndroidTTS:
                 from jnius import autoclass
                 activity = _activity()
                 self._listener = _make_tts_listener()
+                self._listener.owner = self
                 self._tts = autoclass("android.speech.tts.TextToSpeech")(
                     activity, self._listener
                 )
                 self.set_language(self.lang)
-                _log(f"TextToSpeech created (init status {getattr(self._listener, 'status', '?')})")
+                _log("TextToSpeech created")
             except Exception as e:
                 self.last_error = f"{type(e).__name__}: {e}"
                 _log(f"TextToSpeech failed: {self.last_error}")
@@ -136,6 +150,16 @@ class AndroidTTS:
         if not text:
             return False
         tts = self._ensure()
+        if not tts:
+            return False
+        if not self._ready:
+            self._pending = text
+            _log("TTS not ready yet, queued text")
+            return True
+        return self._speak_now(text)
+
+    def _speak_now(self, text):
+        tts = self._tts
         if not tts:
             return False
         try:
