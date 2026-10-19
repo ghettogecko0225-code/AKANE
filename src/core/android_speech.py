@@ -59,7 +59,7 @@ def _make_tts_listener():
     from jnius import PythonJavaClass, java_method
 
     class TtsInitListener(PythonJavaClass):
-        __javainterfaces__ = ["android/speech/tts/TextToVoice$OnInitListener"]
+        __javainterfaces__ = ["android/speech/tts/TextToSpeech$OnInitListener"]
         __javacontext__ = "app"
 
         def __init__(self, **kwargs):
