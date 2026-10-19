@@ -96,7 +96,7 @@ class FlashcardScreen(Screen):
     def on_enter(self):
         self.next_card()
 
-    def next_card(self):
+    def next_card(self, *a):
         self.flipped = False
         due = self.app_ref.engine.due_cards(self.app_ref.deck_id, limit=1)
         if not due:
