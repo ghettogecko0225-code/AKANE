@@ -55,6 +55,53 @@ def run_on_ui_thread(fn):
     handler.post(UiRunnable())
 
 
+def ensure_mic_permission():
+    """Ask for RECORD_AUDIO at runtime. Returns True when already granted."""
+    try:
+        from jnius import autoclass
+        activity = _activity()
+        permission = "android.permission.RECORD_AUDIO"
+        try:
+            granted = activity.checkSelfPermission(permission)
+        except Exception:
+            granted = 0
+        try:
+            PackageManager = autoclass("android.content.pm.PackageManager")
+            granted_ok = int(granted) == int(PackageManager.PERMISSION_GRANTED)
+        except Exception:
+            granted_ok = int(granted) == 0
+        if granted_ok:
+            return True
+        try:
+            activity.requestPermissions([permission], 1)
+        except Exception as e:
+            _log(f"requestPermissions failed: {e}")
+        return False
+    except Exception as e:
+        _log(f"permission check failed: {e}")
+        return False
+
+
+def tts_language_status():
+    """Return (ok, message) describing the engine's Japanese voice state."""
+    try:
+        from jnius import autoclass
+        Locale = autoclass("java.util.Locale")
+        engine = autoclass("android.speech.tts.TextToSpeech")
+        avail = engine.getEngines()
+        found = False
+        for i in range(avail.size()):
+            info = avail.get(i)
+            if info is None:
+                continue
+            if str(info.getLocale()).replace("_", "-").lower().startswith("ja"):
+                found = True
+                break
+        return found, "ja voice found" if found else "no Japanese voice installed"
+    except Exception as e:
+        return False, f"check failed: {e}"
+
+
 def _make_tts_listener():
     from jnius import PythonJavaClass, java_method
 
@@ -270,6 +317,9 @@ class AndroidSTT:
         return self._recognizer
 
     def listen(self, on_result, on_error):
+        if not ensure_mic_permission():
+            _log("RECORD_AUDIO permission not granted yet (requested)")
+
         def start():
             rec = self._ensure()
             if not rec:

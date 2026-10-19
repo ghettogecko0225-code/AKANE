@@ -206,6 +206,9 @@ class VoiceScreen(BaseScreen):
             return
         if _tts_speak(text):
             self.status.text = "Speaking..."
+            ok, msg = android_speech.tts_language_status()
+            if not ok:
+                self.status.text = f"Speaking... ({msg})"
         else:
             self.status.text = f"TTS error: {_tts_error()}"
 
