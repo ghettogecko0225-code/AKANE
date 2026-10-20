@@ -29,9 +29,26 @@ def model_dir(root):
     return None
 
 
+def _import_vosk():
+    """Import vosk, working around its Linux-only platform check.
+
+    vosk's open_dll() only accepts sys.platform 'linux'/'win32'/'darwin'.
+    Android reports 'android', so we present 'linux' for the import.
+    """
+    import sys
+    original = sys.platform
+    if original == "android":
+        sys.platform = "linux"
+    try:
+        import vosk
+        return vosk
+    finally:
+        sys.platform = original
+
+
 def is_available(root):
     try:
-        import vosk  # noqa
+        _import_vosk()
     except Exception:
         return False
     return model_dir(root) is not None
@@ -46,9 +63,9 @@ def _load_model(root):
         if key in _model_cache:
             return _model_cache[key]
         try:
-            from vosk import Model, SetLogLevel
-            SetLogLevel(-1)
-            model = Model(str(path))
+            vosk = _import_vosk()
+            vosk.SetLogLevel(-1)
+            model = vosk.Model(str(path))
             _model_cache[key] = model
             return model
         except Exception:
@@ -62,8 +79,8 @@ def recognize_pcm(root, pcm_bytes, sample_rate=SAMPLE_RATE):
     if model is None:
         return ""
     try:
-        from vosk import KaldiRecognizer
-        rec = KaldiRecognizer(model, sample_rate)
+        vosk = _import_vosk()
+        rec = vosk.KaldiRecognizer(model, sample_rate)
         rec.AcceptWaveform(pcm_bytes)
         result = json.loads(rec.FinalResult())
         return (result.get("text") or "").strip()
@@ -123,11 +140,10 @@ def capture_desktop_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
 
 
 def capture_pcm(root, seconds=5.0):
-    try:
-        from jnius import autoclass  # noqa
+    import sys
+    if sys.platform == "android":
         return capture_android_pcm(seconds)
-    except Exception:
-        return capture_desktop_pcm(seconds)
+    return capture_desktop_pcm(seconds)
 
 
 def listen(root, seconds=5.0, on_done=None):

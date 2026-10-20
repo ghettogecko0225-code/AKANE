@@ -309,6 +309,11 @@ def _make_recognizer_listener(on_result, on_error):
         def onEvent(self, event, params):
             pass
 
+        @java_method("()V")
+        def run(self):
+            # Some Samsung recognizer builds call run() on the listener.
+            pass
+
     return RecognizerListener()
 
 
