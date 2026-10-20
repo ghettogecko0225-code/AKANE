@@ -128,14 +128,25 @@ def _load_sherpa(root):
             return None
 
 
+def _pcm_to_float32(pcm_bytes):
+    """16-bit PCM -> array of float32 samples (no numpy needed, so this
+    works on Android where numpy is not installed)."""
+    import array
+    ints = array.array("h")
+    ints.frombytes(pcm_bytes[: len(pcm_bytes) - (len(pcm_bytes) % 2)])
+    floats = array.array("f", bytes(4 * len(ints)))
+    for i, value in enumerate(ints):
+        floats[i] = value / 32768.0
+    return floats
+
+
 def recognize_pcm(root, pcm_bytes, sample_rate=SAMPLE_RATE):
     """Recognize 16-bit little-endian mono PCM. Returns the text."""
     rec = _load_sherpa(root)
     if rec is None:
         return ""
     try:
-        import numpy as np
-        samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        samples = _pcm_to_float32(pcm_bytes)
         stream = rec.create_stream()
         stream.accept_waveform(sample_rate, samples)
         rec.decode_stream(stream)
