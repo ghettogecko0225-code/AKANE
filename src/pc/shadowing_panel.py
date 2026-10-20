@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from core.voice import synthesize_to_wav
+from core.audio_pack import find, clip_path, play_file
 
 
 class PlayThread(QThread):
@@ -24,15 +25,7 @@ class PlayThread(QThread):
 
     def run(self):
         try:
-            with wave.open(self.path, "rb") as wf:
-                rate = wf.getframerate()
-                data = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
-            stream = sd.OutputStream(samplerate=rate, channels=1, dtype="int16")
-            stream.start()
-            for i in range(0, len(data), 4096):
-                stream.write(data[i:i + 4096].reshape(-1, 1))
-            stream.stop()
-            stream.close()
+            play_file(self.path)
         except Exception:
             pass
         self.done.emit()
@@ -96,9 +89,13 @@ class ShadowingPanel(QWidget):
         self.line_label.setText(self.current["line"])
         self.translation_label.setText(self.current["translation"])
         try:
-            d = tempfile.mkdtemp()
-            self.wav_path = os.path.join(d, "shadow.wav")
-            synthesize_to_wav(self.current["line"], self.wav_path)
+            rel = find(self.root, self.current["line"])
+            if rel:
+                self.wav_path = str(clip_path(self.root, rel))
+            else:
+                d = tempfile.mkdtemp()
+                self.wav_path = os.path.join(d, "shadow.wav")
+                synthesize_to_wav(self.current["line"], self.wav_path)
         except Exception as e:
             self.line_label.setText(f"TTS error: {e}")
             self.wav_path = None

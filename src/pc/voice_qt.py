@@ -13,8 +13,9 @@ class Speaker(QObject):
     done = pyqtSignal()
     error = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, root=None):
         super().__init__()
+        self.root = root
         self.playing = False
         self._stop = threading.Event()
         self._lock = threading.Lock()
@@ -36,6 +37,11 @@ class Speaker(QObject):
         self._stop.clear()
         self.started.emit()
         try:
+            if self.root is not None:
+                from core.audio_pack import AudioPlayer
+                player = AudioPlayer(self.root)
+                if player.play(text):
+                    return
             d = pathlib.Path(tempfile.gettempdir()) / "sensei_tts"
             d.mkdir(exist_ok=True)
             out = d / f"utt_{int(time.time() * 1000)}.wav"

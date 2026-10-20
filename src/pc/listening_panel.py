@@ -14,6 +14,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from core.voice import synthesize_to_wav
 from core.immersion import listening_items
+from core.audio_pack import find, clip_path, play_file
 
 
 class PlayThread(QThread):
@@ -25,15 +26,7 @@ class PlayThread(QThread):
 
     def run(self):
         try:
-            with wave.open(self.path, "rb") as wf:
-                rate = wf.getframerate()
-                data = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
-            stream = sd.OutputStream(samplerate=rate, channels=1, dtype="int16")
-            stream.start()
-            for i in range(0, len(data), 4096):
-                stream.write(data[i:i + 4096].reshape(-1, 1))
-            stream.stop()
-            stream.close()
+            play_file(self.path)
         except Exception:
             pass
         self.done.emit()
@@ -98,9 +91,13 @@ class ListeningPanel(QWidget):
         self.answer_reveal.hide()
         self.answer_reveal.clear()
         try:
-            d = tempfile.mkdtemp()
-            self.wav_path = os.path.join(d, "listen.wav")
-            synthesize_to_wav(self.current["ja"], self.wav_path)
+            rel = find(self.root, self.current["ja"])
+            if rel:
+                self.wav_path = str(clip_path(self.root, rel))
+            else:
+                d = tempfile.mkdtemp()
+                self.wav_path = os.path.join(d, "listen.wav")
+                synthesize_to_wav(self.current["ja"], self.wav_path)
             self.play_btn.setEnabled(True)
         except Exception as e:
             self.result.setText(f"TTS error: {e}")

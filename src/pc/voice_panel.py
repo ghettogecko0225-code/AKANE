@@ -31,9 +31,9 @@ class ListenThread(QThread):
 
 
 class VoicePanel(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, root=None):
         super().__init__(parent)
-        self.speaker = Speaker()
+        self.speaker = Speaker(root)
         self.speaker.error.connect(lambda e: self.status.setText(f"TTS error: {e}"))
         self.speaker.done.connect(lambda: self.status.setText("Done speaking"))
 

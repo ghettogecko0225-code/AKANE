@@ -84,3 +84,24 @@ def record_samples(seconds=4.0, sample_rate=16000):
     rec = sd.rec(int(seconds * sample_rate), samplerate=sample_rate, channels=1, dtype="float32")
     sd.wait()
     return rec[:, 0]
+
+
+def speak(text, root=None):
+    """Speak Japanese: pre-rendered audio pack first, piper as fallback."""
+    if root is not None:
+        try:
+            from core.audio_pack import AudioPlayer
+            player = AudioPlayer(root)
+            if player.play(text):
+                return True
+        except Exception:
+            pass
+    try:
+        d = pathlib.Path(tempfile.gettempdir()) / "sensei_tts"
+        d.mkdir(exist_ok=True)
+        out = d / f"utt_{int(time.time() * 1000)}.wav"
+        synthesize_to_wav(text, str(out))
+        play_wav(str(out))
+        return True
+    except Exception:
+        return False

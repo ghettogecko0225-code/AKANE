@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         self.view = FlashCardView(self.engine, self.progress)
         tabs.addTab(self.view, "Flashcards")
-        self.voice_panel = VoicePanel()
+        self.voice_panel = VoicePanel(root=self.root)
         tabs.addTab(self.voice_panel, "Voice")
         self.translate_panel = TranslatePanel()
         tabs.addTab(self.translate_panel, "Translate")

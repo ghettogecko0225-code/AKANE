@@ -249,10 +249,17 @@ class VoiceScreen(BaseScreen):
                 self.input.text = text
 
         def on_error(code):
-            self.status.text = f"Listen error ({code})"
+            if int(code) in (7, 8, 9, 12, 15):
+                self.status.text = (
+                    "No Japanese voice model on this phone. "
+                    "Add Japanese in Settings > Google voice typing (or use the "
+                    "audio pack drills)."
+                )
+            else:
+                self.status.text = f"Listen error ({code})"
 
         try:
-            stt = android_speech.AndroidSTT("ja")
+            stt = android_speech.AndroidSTT("ja", fallbacks=("ja-JP", "en-US"))
             stt.listen(on_result, on_error)
         except Exception as e:
             self.status.text = f"Listen error: {e}"
@@ -511,10 +518,16 @@ class SpeakingScreen(BaseScreen):
             self.status.text = ""
 
         def on_error(code):
-            self.status.text = f"Record error ({code})"
+            if int(code) in (7, 8, 9, 12, 15):
+                self.status.text = (
+                    "No Japanese voice model on this phone - add Japanese in "
+                    "Settings > Google voice typing."
+                )
+            else:
+                self.status.text = f"Record error ({code})"
 
         try:
-            stt = android_speech.AndroidSTT("ja")
+            stt = android_speech.AndroidSTT("ja", fallbacks=("ja-JP", "en-US"))
             stt.listen(on_result, on_error)
         except Exception as e:
             self.status.text = f"Record error: {e}"

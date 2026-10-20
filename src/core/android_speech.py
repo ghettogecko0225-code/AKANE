@@ -313,13 +313,22 @@ def _make_recognizer_listener(on_result, on_error):
 
 
 class AndroidSTT:
-    """SpeechRecognizer wrapper."""
+    """SpeechRecognizer wrapper.
 
-    def __init__(self, lang="ja"):
+    Some devices only ship an English recognition model, so a Japanese
+    request comes back with ERROR_LANGUAGE_UNAVAILABLE (7). In that case
+    we fall back through the language list instead of failing outright.
+    """
+
+    LANG_ERRORS = (7, 8, 9, 12, 15)
+
+    def __init__(self, lang="ja", fallbacks=("ja-JP", "en-US")):
         self.lang = lang
+        self.fallbacks = list(fallbacks)
         self._recognizer = None
         self._listener = None
         self.last_error = ""
+        self._used_lang = lang
 
     def _ensure(self):
         if self._recognizer is not None:
@@ -339,6 +348,33 @@ class AndroidSTT:
         if not ensure_mic_permission():
             _log("RECORD_AUDIO permission not granted yet (requested)")
 
+        state = {"tries": 0, "done": False}
+
+        def handle_error(code):
+            if state["done"]:
+                return
+            code = int(code)
+            if code in self.LANG_ERRORS and state["tries"] < len(self.fallbacks):
+                nxt = self.fallbacks[state["tries"]]
+                state["tries"] += 1
+                self._used_lang = nxt
+                self.lang = nxt
+                _log(f"recognition language unavailable, retrying with {nxt}")
+                self._start(nxt, on_result, on_error)
+                return
+            state["done"] = True
+            on_error(code)
+
+        def handle_result(text):
+            if state["done"]:
+                return
+            state["done"] = True
+            on_result(text)
+
+        self._start(self.lang, handle_result, handle_error)
+        return True
+
+    def _start(self, lang, on_result, on_error):
         def start():
             rec = self._ensure()
             if not rec:
@@ -353,7 +389,7 @@ class AndroidSTT:
                     RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                     RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
                 )
-                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, self.lang)
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang)
                 intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, False)
                 self._listener = _make_recognizer_listener(on_result, on_error)
                 rec.setRecognitionListener(self._listener)
@@ -365,12 +401,10 @@ class AndroidSTT:
 
         try:
             run_on_ui_thread(start)
-            return True
         except Exception as e:
             self.last_error = f"{type(e).__name__}: {e}"
             _log(f"run_on_ui_thread failed: {self.last_error}")
             on_error(-1)
-            return False
 
     def stop(self):
         try:

@@ -49,6 +49,18 @@ def clip_path(root, rel_path):
     return Path(root) / "assets" / rel_path
 
 
+def play_file(path):
+    """Play an audio file (WAV or OGG) on the desktop."""
+    import numpy as np
+    import soundfile as sf
+    import sounddevice as sd
+    data, rate = sf.read(str(path), dtype="float32")
+    if data.ndim > 1:
+        data = data.mean(axis=1)
+    sd.play(data, rate)
+    sd.wait()
+
+
 class AudioPlayer:
     """Thread-safe one-shot player. Never blocks the UI."""
 
