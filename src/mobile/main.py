@@ -47,25 +47,41 @@ from core.workbook import WorkbookEngine
 from core.scheduler import Scheduler
 
 from core import android_speech
+from core.audio_pack import AudioPlayer
 
 ANDROID = android_speech.is_available()
 
 TTS = android_speech.AndroidTTS("ja") if ANDROID else None
+AUDIO = None
 
 
-def _tts_speak(text):
-    if TTS is None:
-        return False
-    try:
-        return TTS.speak(text)
-    except Exception:
-        return False
+def _audio_pack():
+    global AUDIO
+    if AUDIO is None:
+        try:
+            AUDIO = AudioPlayer(ROOT)
+        except Exception:
+            AUDIO = False
+    return AUDIO or None
+
+
+def _speak(text):
+    """Speak Japanese: pre-rendered audio first, device TTS as fallback."""
+    player = _audio_pack()
+    if player is not None and player.play(text):
+        return True
+    if TTS is not None:
+        try:
+            return TTS.speak(text)
+        except Exception:
+            return False
+    return False
 
 
 def _tts_error():
     if TTS is None:
-        return "TTS not available"
-    return getattr(TTS, "last_error", "") or "TTS unavailable on this device"
+        return "no audio available"
+    return getattr(TTS, "last_error", "") or "audio unavailable"
 
 
 class BaseScreen(Screen):
@@ -204,7 +220,11 @@ class VoiceScreen(BaseScreen):
         text = self.input.text.strip()
         if not text:
             return
-        if _tts_speak(text):
+        player = _audio_pack()
+        if player is not None and player.play(text):
+            self.status.text = "Playing recorded Japanese audio"
+            return
+        if _speak(text):
             lang_res = getattr(TTS, "language_result", -1) if TTS else -1
             if lang_res is not None and int(lang_res) < 0:
                 self.status.text = (
@@ -214,7 +234,7 @@ class VoiceScreen(BaseScreen):
             else:
                 self.status.text = "Speaking..."
         else:
-            self.status.text = f"TTS error: {_tts_error()}"
+            self.status.text = f"Audio error: {_tts_error()}"
 
     def listen(self, *a):
         if not ANDROID:
@@ -418,7 +438,7 @@ class ListeningScreen(BaseScreen):
     def play(self, *a):
         if self.current is None:
             return
-        if _tts_speak(self.current["ja"]):
+        if _speak(self.current["ja"]):
             self.status.text = "Playing..."
         else:
             self.status.text = f"TTS error: {_tts_error()}"
@@ -583,7 +603,7 @@ class ShadowingScreen(BaseScreen):
     def play(self, *a):
         if self.current is None:
             return
-        if _tts_speak(self.current["line"]):
+        if _speak(self.current["line"]):
             self.status.text = "Playing..."
         else:
             self.status.text = f"TTS error: {_tts_error()}"

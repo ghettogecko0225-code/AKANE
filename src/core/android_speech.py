@@ -276,8 +276,8 @@ def _make_recognizer_listener(on_result, on_error):
                 _log(f"onResults parse failed: {e}")
                 on_result("")
 
-        @java_method("(ILandroid/os/Bundle;)V")
-        def onError(self, error, extras):
+        @java_method("(I)V")
+        def onError(self, error):
             _log(f"recognizer error {int(error)}")
             on_error(int(error))
 
@@ -289,7 +289,7 @@ def _make_recognizer_listener(on_result, on_error):
         def onBeginningOfSpeech(self):
             pass
 
-        @java_method("(I)V")
+        @java_method("(F)V")
         def onRmsChanged(self, rms):
             pass
 
@@ -301,12 +301,12 @@ def _make_recognizer_listener(on_result, on_error):
         def onEndOfSpeech(self):
             pass
 
-        @java_method("(I)V")
+        @java_method("(Landroid/os/Bundle;)V")
         def onPartialResults(self, partial):
             pass
 
-        @java_method("(I)V")
-        def onEvent(self, event):
+        @java_method("(ILandroid/os/Bundle;)V")
+        def onEvent(self, event, params):
             pass
 
     return RecognizerListener()
