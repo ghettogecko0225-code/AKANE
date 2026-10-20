@@ -223,49 +223,54 @@ def capture_pcm(root, seconds=5.0):
 
 
 def listen_and_recognize(root, seconds=5.0):
-    """Record and recognise in one pass, streaming audio into Vosk."""
+    """Record and recognise in one pass, streaming audio into Vosk.
+
+    Returns (text, info) where info has bytes/rms/peak so the UI can say
+    whether the failure was the microphone, the volume, or the language.
+    """
     import sys
+    info = {"bytes": 0, "rms": 0.0, "peak": 0}
     model = _load_model(root)
     if model is None:
-        return ""
+        return "", info
     vosk = _import_vosk()
     try:
         rec = vosk.KaldiRecognizer(model, SAMPLE_RATE)
     except Exception as e:
         _log(f"KaldiRecognizer failed: {e}")
-        return ""
+        return "", info
     pcm = capture_pcm(root, seconds)
+    info["bytes"] = len(pcm)
+    info["rms"], info["peak"] = _rms_peak(pcm)
     if not pcm:
         _log("no audio captured")
-        return ""
+        return "", info
     try:
         rec.AcceptWaveform(pcm)
         result = json.loads(rec.FinalResult())
         text = (result.get("text") or "").strip()
         if not text:
-            # Fall back to the last partial result for short utterances.
             try:
-                text = (rec.PartialResult() or "").strip()
-                if text:
-                    text = json.loads(text).get("text", "").strip()
+                partial = json.loads(rec.PartialResult() or "{}")
+                text = (partial.get("text") or "").strip()
             except Exception:
                 text = ""
-        _log(f"recognized: {text!r}")
-        return text
+        _log(f"recognized: {text!r} (bytes={info['bytes']}, rms={info['rms']:.0f})")
+        return text, info
     except Exception as e:
         _log(f"recognize failed: {type(e).__name__}: {e}")
-        return ""
+        return "", info
 
 
 def listen(root, seconds=5.0, on_done=None):
-    """Capture the microphone and recognize it. Calls on_done(text)."""
+    """Capture the microphone and recognize it. Calls on_done(text, info)."""
     def worker():
         try:
-            text = listen_and_recognize(root, seconds)
+            text, info = listen_and_recognize(root, seconds)
         except Exception as e:
             _log(f"listen failed: {type(e).__name__}: {e}")
-            text = ""
+            text, info = "", {"bytes": 0, "rms": 0.0, "peak": 0}
         if on_done:
-            on_done(text)
+            on_done(text, info)
 
     threading.Thread(target=worker, daemon=True).start()

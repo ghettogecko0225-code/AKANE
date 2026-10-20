@@ -91,11 +91,18 @@ def _recognize_offline(on_text, on_error, seconds=5.0):
         on_error("offline model not available")
         return False
 
-    def done(text):
+    def done(text, info):
         if text:
             on_text(text)
+            return
+        if not info.get("bytes"):
+            on_error("microphone captured nothing - check the headset mic")
+        elif info.get("rms", 0) < 200:
+            on_error("microphone too quiet - speak closer to the mic")
         else:
-            on_error("no speech heard - try again, closer to the mic")
+            on_error(
+                "heard audio but no Japanese - say the sentence in Japanese"
+            )
 
     asr.listen(ROOT, seconds, done)
     return True
