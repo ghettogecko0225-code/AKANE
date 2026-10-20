@@ -27,6 +27,7 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.spinner import Spinner
 from kivy.core.window import Window
 from kivy.core.text import LabelBase
+from kivy.clock import Clock
 
 try:
     LabelBase.register(
@@ -170,7 +171,8 @@ class HomeScreen(BaseScreen):
         self.spinner.bind(text=self.on_deck)
         self.box.add_widget(self.spinner)
         for name in ["Flashcards", "Voice", "Translate", "Workbook", "Reading",
-                     "Listening", "Speaking", "News", "Shadowing", "Progress"]:
+                     "Listening", "Speaking", "News", "Shadowing", "Model",
+                     "Progress"]:
             btn = Button(text=name, size_hint=(1, 0.075))
             btn.bind(on_press=lambda x, n=name: self.app_ref.go(n))
             self.box.add_widget(btn)
@@ -695,6 +697,84 @@ class ProgressScreen(BaseScreen):
             self.forecast.text = "Due next 5 days\n" + "\n".join(f"{f['date']}: {f['count']}" for f in fc)
 
 
+class ModelScreen(BaseScreen):
+    """Download / remove the optional 1GB Japanese recognition model."""
+
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Voice Model", **kwargs)
+        from kivy.uix.progressbar import ProgressBar
+
+        self.info = Label(text="", size_hint=(1, 0.16))
+        self.box.add_widget(self.info)
+        self.status = Label(text="", size_hint=(1, 0.1))
+        self.box.add_widget(self.status)
+        self.progress = ProgressBar(max=1.0, size_hint=(1, 0.06))
+        self.progress.value = 0
+        self.box.add_widget(self.progress)
+        self.download_btn = Button(text="Download big model (1GB)", size_hint=(1, 0.1))
+        self.download_btn.bind(on_press=self.start_download)
+        self.box.add_widget(self.download_btn)
+        self.delete_btn = Button(text="Remove big model", size_hint=(1, 0.1))
+        self.delete_btn.bind(on_press=self.delete_model)
+        self.box.add_widget(self.delete_btn)
+        self.add_home_button()
+        self.refresh()
+
+    def on_enter(self):
+        self.refresh()
+
+    def refresh(self):
+        info = asr.model_info(ROOT)
+        free_mb = asr.available_ram_mb()
+        mem = f"\nFree RAM: {free_mb} MB" if free_mb else ""
+        self.info.text = f"Active: {info.get('name', 'none')}\n{info.get('detail', '')}{mem}"
+        if info.get("has_big"):
+            self.download_btn.text = "Big model installed"
+            self.delete_btn.disabled = False
+        else:
+            self.download_btn.text = "Download big model (1GB)"
+            self.delete_btn.disabled = True
+
+    def start_download(self, *a):
+        free_mb = asr.available_ram_mb()
+        if free_mb is not None and free_mb < 1400:
+            self.status.text = (
+                f"Not enough free memory ({free_mb} MB). The big model needs "
+                "~1.5 GB. Close other apps and try again."
+            )
+            return
+        self.download_btn.disabled = True
+        self.delete_btn.disabled = True
+        self.status.text = "Downloading 1GB model... keep the app open"
+
+        def on_progress(done, total):
+            def apply():
+                self.progress.value = (done / total) if total else 0
+                self.status.text = f"Downloading... {done/1024/1024:.0f} MB of {total/1024/1024:.0f} MB"
+            Clock.schedule_once(apply, 0)
+
+        def on_done(path):
+            def apply():
+                self.status.text = "Installed. Tap New in Speaking to use it."
+                self.progress.value = 1
+                self.refresh()
+            Clock.schedule_once(apply, 0)
+
+        def on_error(err):
+            def apply():
+                self.status.text = f"Download failed: {err}"
+                self.refresh()
+            Clock.schedule_once(apply, 0)
+
+        asr.download_big_model(ROOT, on_progress, on_done, on_error)
+
+    def delete_model(self, *a):
+        asr.delete_big_model(ROOT)
+        self.progress.value = 0
+        self.status.text = "Big model removed. Using the bundled small model."
+        self.refresh()
+
+
 class SenseiApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -728,6 +808,7 @@ class SenseiApp(App):
         self.sm.add_widget(SpeakingScreen(self, name="Speaking"))
         self.sm.add_widget(NewsScreen(self, name="News"))
         self.sm.add_widget(ShadowingScreen(self, name="Shadowing"))
+        self.sm.add_widget(ModelScreen(self, name="Model"))
         self.sm.add_widget(ProgressScreen(self, name="Progress"))
         threading.Thread(target=self._import_full_content, daemon=True).start()
         return self.sm

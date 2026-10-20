@@ -8,16 +8,25 @@ The Japanese model is bundled in assets/models/vosk and is Apache 2.0, so it
 can be redistributed in a commercial app.
 """
 import json
+import os
+import shutil
 import threading
+import urllib.request
+import zipfile
 from pathlib import Path
 
 SAMPLE_RATE = 16000
+
+BIG_MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-ja-0.22.zip"
+BIG_MODEL_NAME = "vosk-model-ja-0.22"
+SMALL_MODEL_NAME = "vosk-model-small-ja-0.22"
 
 _model_cache = {}
 _lock = threading.Lock()
 
 
-def model_dir(root):
+def bundled_model_dir(root):
+    """The small model shipped inside the app."""
     root = Path(root)
     candidates = [root / "assets" / "asr", root / "assets" / "models" / "vosk"]
     for base in candidates:
@@ -27,6 +36,116 @@ def model_dir(root):
             if child.is_dir() and (child / "am" / "final.mdl").exists():
                 return child
     return None
+
+
+def downloaded_model_dir(root):
+    """The big model, if the user has downloaded it."""
+    path = Path(root) / "data" / "asr" / BIG_MODEL_NAME
+    if (path / "am" / "final.mdl").exists():
+        return path
+    return None
+
+
+def model_dir(root):
+    """The model in use: the downloaded big one if present, else bundled."""
+    return downloaded_model_dir(root) or bundled_model_dir(root)
+
+
+def model_info(root):
+    """Describe which model is active and what else is available."""
+    active = model_dir(root)
+    big = downloaded_model_dir(root)
+    bundled = bundled_model_dir(root)
+    if active is None:
+        return {"active": "none", "detail": "no model found"}
+    name = active.name
+    if active == big:
+        return {
+            "active": "big",
+            "name": name,
+            "detail": "Big model (1GB) - best accuracy",
+            "has_big": True,
+            "has_small": bundled is not None,
+        }
+    return {
+        "active": "small",
+        "name": name,
+        "detail": "Small model (bundled) - fast, less accurate",
+        "has_big": False,
+        "has_small": True,
+    }
+
+
+def reset_model_cache():
+    """Drop the loaded model so the next use picks up a new one."""
+    with _lock:
+        _model_cache.clear()
+
+
+def delete_big_model(root):
+    """Remove the downloaded big model and free the space."""
+    reset_model_cache()
+    target = Path(root) / "data" / "asr"
+    if not target.is_dir():
+        return False
+    removed = False
+    for child in target.iterdir():
+        try:
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+            removed = True
+        except Exception:
+            pass
+    return removed
+
+
+def download_big_model(root, on_progress=None, on_done=None, on_error=None):
+    """Download, unzip and install the 1GB Japanese model.
+
+    Runs in a background thread. on_progress(done_bytes, total_bytes) is
+    called with the download progress.
+    """
+
+    def worker():
+        try:
+            target = Path(root) / "data" / "asr"
+            target.mkdir(parents=True, exist_ok=True)
+            zip_path = target / (BIG_MODEL_NAME + ".zip")
+            _log(f"downloading {BIG_MODEL_URL}")
+            with urllib.request.urlopen(BIG_MODEL_URL, timeout=120) as resp:
+                total = int(resp.headers.get("Content-Length", 0))
+                done = 0
+                with open(zip_path, "wb") as f:
+                    while True:
+                        chunk = resp.read(1024 * 512)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        done += len(chunk)
+                        if on_progress:
+                            on_progress(done, total)
+            _log(f"download complete ({done} bytes), extracting")
+            with zipfile.ZipFile(zip_path) as archive:
+                archive.extractall(target)
+            try:
+                zip_path.unlink()
+            except Exception:
+                pass
+            installed = target / BIG_MODEL_NAME
+            if not (installed / "am" / "final.mdl").exists():
+                raise RuntimeError("model archive did not contain the model")
+            reset_model_cache()
+            _log(f"big model installed at {installed}")
+            if on_done:
+                on_done(str(installed))
+        except Exception as e:
+            _log(f"big model download failed: {type(e).__name__}: {e}")
+            if on_error:
+                on_error(e)
+
+    threading.Thread(target=worker, daemon=True).start()
 
 
 def _import_vosk():
@@ -74,6 +193,18 @@ def _log(msg):
         pass
 
 
+def available_ram_mb():
+    """Free RAM in MB, or None if it cannot be determined."""
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) // 1024
+    except Exception:
+        pass
+    return None
+
+
 def _load_model(root):
     path = model_dir(root)
     if path is None:
@@ -90,7 +221,21 @@ def _load_model(root):
             _log(f"vosk model loaded: {path.name}")
             return model
         except Exception as e:
-            _log(f"vosk model load failed: {type(e).__name__}: {e}")
+            _log(f"vosk model load failed for {path.name}: {type(e).__name__}: {e}")
+            # If the big model cannot be loaded (usually out of memory on a
+            # small phone) fall back to the bundled small model.
+            fallback = bundled_model_dir(root)
+            if fallback is not None and fallback != path:
+                _log(f"falling back to {fallback.name}")
+                try:
+                    vosk = _import_vosk()
+                    vosk.SetLogLevel(-1)
+                    model = vosk.Model(str(fallback))
+                    _model_cache[key] = model
+                    _model_cache[str(fallback)] = model
+                    return model
+                except Exception as e2:
+                    _log(f"small model load failed: {type(e2).__name__}: {e2}")
             _model_cache[key] = None
             return None
 
