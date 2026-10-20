@@ -12,7 +12,8 @@ fullscreen = 0
 android.permissions = INTERNET,RECORD_AUDIO
 android.extra_manifest_application_arguments = android/extra_manifest_application_arguments.xml
 android.api = 33
-android.minapi = 21
+android.minapi = 24
+android.ndk_api = 24
 android.archs = arm64-v8a
 p4a.bootstrap = sdl2
 
