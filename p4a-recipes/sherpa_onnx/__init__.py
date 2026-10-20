@@ -10,6 +10,7 @@ Wheels used:
   sherpa_onnx_core-1.13.8-py3-none-android_24_arm64_v8a.whl
 """
 import json
+import shutil
 import urllib.request
 import zipfile
 from os.path import basename, exists, join
@@ -75,6 +76,24 @@ class SherpaOnnxRecipe(Recipe):
             info(f"Unpacking {basename(wheel_path)} into site-packages")
             with zipfile.ZipFile(wheel_path) as archive:
                 archive.extractall(install_dir)
+        self.install_shared_libs(arch, install_dir)
+
+    def install_shared_libs(self, arch, install_dir):
+        """Android's linker only searches the APK's native lib folder, so
+        libonnxruntime.so and the sherpa C-API libs must be copied there."""
+        import glob
+        libs_dir = self.ctx.get_libs_dir(arch.arch)
+        ensure_dir(libs_dir)
+        candidates = []
+        for pattern in ("sherpa_onnx/lib/*.so", "sherpa_onnx.libs/*.so"):
+            candidates.extend(glob.glob(join(install_dir, pattern)))
+        for path in candidates:
+            name = basename(path)
+            if name.startswith("_sherpa_onnx"):
+                continue
+            target = join(libs_dir, name)
+            info(f"Installing native lib {name} into the APK lib folder")
+            shutil.copyfile(path, target)
 
 
 recipe = SherpaOnnxRecipe()
