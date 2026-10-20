@@ -133,15 +133,18 @@ def _rms_peak(pcm_bytes):
 
 
 def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
-    """Record mono 16-bit PCM with android.media.AudioRecord."""
+    """Record mono 16-bit PCM with android.media.AudioRecord.
+
+    The channel/encoding constants live on android.media.AudioFormat, not
+    on AudioRecord.
+    """
     from jnius import autoclass
     AudioRecord = autoclass("android.media.AudioRecord")
+    AudioFormat = autoclass("android.media.AudioFormat")
     MediaRecorder = autoclass("android.media.MediaRecorder")
-    buffer_size = int(
-        AudioRecord.getMinBufferSize(
-            sample_rate, AudioRecord.CHANNEL_IN_MONO, AudioRecord.ENCODING_PCM_16BIT
-        )
-    )
+    channel = AudioFormat.CHANNEL_IN_MONO
+    encoding = AudioFormat.ENCODING_PCM_16BIT
+    buffer_size = int(AudioRecord.getMinBufferSize(sample_rate, channel, encoding))
     buffer_size = max(buffer_size * 2, 8192)
     recorder = None
     for source_name in ("VOICE_RECOGNITION", "MIC", "VOICE_COMMUNICATION"):
@@ -153,11 +156,12 @@ def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
             candidate = AudioRecord(
                 source,
                 sample_rate,
-                AudioRecord.CHANNEL_IN_MONO,
-                AudioRecord.ENCODING_PCM_16BIT,
+                channel,
+                encoding,
                 buffer_size,
             )
-        except Exception:
+        except Exception as e:
+            _log(f"AudioRecord({source_name}) failed: {e}")
             continue
         if candidate.getState() == AudioRecord.STATE_INITIALIZED:
             recorder = candidate
