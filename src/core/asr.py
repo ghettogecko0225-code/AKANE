@@ -165,7 +165,6 @@ def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
     from jnius import autoclass
     AudioRecord = autoclass("android.media.AudioRecord")
     AudioFormat = autoclass("android.media.AudioFormat")
-    MediaRecorder = autoclass("android.media.MediaRecorder")
     channel = AudioFormat.CHANNEL_IN_MONO
     encoding = AudioFormat.ENCODING_PCM_16BIT
 
@@ -178,27 +177,36 @@ def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
     except Exception as e:
         _log(f"microphone check failed: {type(e).__name__}: {e}")
 
-    sources = ["VOICE_RECOGNITION", "MIC", "VOICE_COMMUNICATION", "DEFAULT"]
+    # android.media.MediaRecorder.AudioSource values (read as plain ints so
+    # we do not depend on nested-class access through pyjnius).
+    SOURCES = [
+        ("VOICE_RECOGNITION", 6),
+        ("MIC", 1),
+        ("VOICE_COMMUNICATION", 7),
+        ("DEFAULT", 0),
+    ]
     rates = [sample_rate, 48000, 44100]
     recorder = None
     used_rate = sample_rate
     for rate in rates:
         try:
             min_buffer = int(AudioRecord.getMinBufferSize(rate, channel, encoding))
-        except Exception:
+        except Exception as e:
             min_buffer = 0
+            _log(f"getMinBufferSize({rate}) raised {e}")
         if min_buffer <= 0:
             _log(f"getMinBufferSize({rate}) -> {min_buffer}")
         buffer_size = max(min_buffer * 2, 8192)
-        for source_name in sources:
+        for source_name, source_value in SOURCES:
             try:
-                source = getattr(MediaRecorder.AudioSource, source_name)
-            except Exception:
-                continue
-            try:
-                candidate = AudioRecord(source, rate, channel, encoding, buffer_size)
+                candidate = AudioRecord(
+                    source_value, rate, channel, encoding, buffer_size
+                )
             except Exception as e:
-                _log(f"AudioRecord({source_name},{rate}) raised {type(e).__name__}: {e}")
+                _log(
+                    f"AudioRecord({source_name},{rate}) raised "
+                    f"{type(e).__name__}: {e}"
+                )
                 continue
             try:
                 state = candidate.getState()
