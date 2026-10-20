@@ -95,10 +95,15 @@ def _recognize_offline(on_text, on_error, seconds=5.0):
         if text:
             on_text(text)
             return
+        raw_peak = info.get("raw_peak", 0)
         if not info.get("bytes"):
             on_error("microphone captured nothing - check the headset mic")
-        elif info.get("rms", 0) < 200:
-            on_error("microphone too quiet - speak closer to the mic")
+        elif raw_peak < 30:
+            on_error(
+                "microphone is silent - plug in the headset or speak into the phone"
+            )
+        elif raw_peak < 600:
+            on_error("microphone is very quiet - speak closer or louder")
         else:
             on_error(
                 "heard audio but no Japanese - say the sentence in Japanese"
@@ -137,7 +142,7 @@ def _recognize_device(on_text, on_error):
 
 def _start_listening(on_text, on_error):
     """Prefer the bundled offline model; fall back to the device engine."""
-    if _recognize_offline(on_text, on_error):
+    if _recognize_offline(on_text, on_error, seconds=6.0):
         return
     _recognize_device(on_text, on_error)
 

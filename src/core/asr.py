@@ -180,8 +180,8 @@ def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
     # android.media.MediaRecorder.AudioSource values (read as plain ints so
     # we do not depend on nested-class access through pyjnius).
     SOURCES = [
-        ("VOICE_RECOGNITION", 6),
         ("MIC", 1),
+        ("VOICE_RECOGNITION", 6),
         ("VOICE_COMMUNICATION", 7),
         ("DEFAULT", 0),
     ]
@@ -286,6 +286,36 @@ def capture_pcm(root, seconds=5.0):
     return capture_desktop_pcm(seconds)
 
 
+def _normalize_gain(pcm, target_peak=12000, max_gain=400.0):
+    """Scale quiet microphone audio up to a level the recogniser can use.
+
+    Phone microphones often hand back very low amplitude audio (rms of a
+    few counts), which is effectively silence to a speech model.
+    """
+    import array
+    if not pcm:
+        return pcm
+    samples = array.array("h")
+    samples.frombytes(pcm[: len(pcm) - (len(pcm) % 2)])
+    if not samples:
+        return pcm
+    peak = 0
+    for s in samples:
+        a = s if s >= 0 else -s
+        if a > peak:
+            peak = a
+    if peak == 0 or peak >= target_peak:
+        return pcm
+    gain = min(target_peak / peak, max_gain)
+    for i, s in enumerate(samples):
+        v = int(s * gain)
+        samples[i] = 32767 if v > 32767 else (-32768 if v < -32768 else v)
+    out = samples.tobytes()
+    rms2, peak2 = _rms_peak(out)
+    _log(f"gain applied x{gain:.1f}: rms {rms2:.0f}, peak {peak2}")
+    return out
+
+
 def listen_and_recognize(root, seconds=5.0):
     """Record and recognise in one pass, streaming audio into Vosk.
 
@@ -306,9 +336,12 @@ def listen_and_recognize(root, seconds=5.0):
     pcm = capture_pcm(root, seconds)
     info["bytes"] = len(pcm)
     info["rms"], info["peak"] = _rms_peak(pcm)
+    info["raw_peak"] = info["peak"]
     if not pcm:
         _log("no audio captured")
         return "", info
+    pcm = _normalize_gain(pcm)
+    info["rms"], info["peak"] = _rms_peak(pcm)
     try:
         rec.AcceptWaveform(pcm)
         result = json.loads(rec.FinalResult())
