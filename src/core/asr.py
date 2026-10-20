@@ -21,8 +21,83 @@ BIG_MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-ja-0.22.zip"
 BIG_MODEL_NAME = "vosk-model-ja-0.22"
 SMALL_MODEL_NAME = "vosk-model-small-ja-0.22"
 
+SHERPA_DIRNAME = "asr_sherpa"
+
 _model_cache = {}
+_sherpa_cache = {}
 _lock = threading.Lock()
+
+
+def sherpa_model_dir(root):
+    """The bundled sherpa-onnx zipformer (Japanese + English) model."""
+    root = Path(root)
+    for base in (root / "assets" / SHERPA_DIRNAME, root / "data" / SHERPA_DIRNAME):
+        if not base.is_dir():
+            continue
+        tokens = base / "tokens.txt"
+        encoders = sorted(base.glob("encoder*.int8.onnx"))
+        decoders = sorted(base.glob("decoder*.int8.onnx"))
+        joiners = sorted(base.glob("joiner*.int8.onnx"))
+        if tokens.exists() and encoders and decoders and joiners:
+            return base
+    return None
+
+
+def sherpa_available(root):
+    try:
+        import sherpa_onnx  # noqa
+    except Exception:
+        return False
+    return sherpa_model_dir(root) is not None
+
+
+def _load_sherpa(root):
+    base = sherpa_model_dir(root)
+    if base is None:
+        return None
+    key = str(base)
+    with _lock:
+        if key in _sherpa_cache:
+            return _sherpa_cache[key]
+        try:
+            import sherpa_onnx
+            tokens = sorted(base.glob("tokens.txt"))[0]
+            encoder = sorted(base.glob("encoder*.int8.onnx"))[0]
+            decoder = sorted(base.glob("decoder*.int8.onnx"))[0]
+            joiner = sorted(base.glob("joiner*.int8.onnx"))[0]
+            rec = sherpa_onnx.OfflineRecognizer.from_transducer(
+                tokens=str(tokens),
+                encoder=str(encoder),
+                decoder=str(decoder),
+                joiner=str(joiner),
+                num_threads=2,
+                provider="cpu",
+            )
+            _sherpa_cache[key] = rec
+            _log(f"sherpa recognizer ready: {base.name}")
+            return rec
+        except Exception as e:
+            _log(f"sherpa load failed: {type(e).__name__}: {e}")
+            _sherpa_cache[key] = None
+            return None
+
+
+def _recognize_sherpa(root, pcm_bytes, sample_rate=SAMPLE_RATE):
+    rec = _load_sherpa(root)
+    if rec is None:
+        return ""
+    try:
+        import numpy as np
+        samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        stream = rec.create_stream()
+        stream.accept_waveform(sample_rate, samples)
+        rec.decode_stream(stream)
+        text = (stream.result.text or "").strip()
+        _log(f"sherpa recognized: {text!r}")
+        return text
+    except Exception as e:
+        _log(f"sherpa recognize failed: {type(e).__name__}: {e}")
+        return ""
 
 
 def bundled_model_dir(root):
@@ -52,25 +127,31 @@ def model_dir(root):
 
 
 def model_info(root):
-    """Describe which model is active and what else is available."""
+    """Describe which engine/model is active."""
+    if sherpa_available(root):
+        return {
+            "active": "sherpa",
+            "name": "sherpa-onnx zipformer ja-en (int8)",
+            "detail": "Best accuracy - Japanese + English, 70MB, offline",
+            "has_big": downloaded_model_dir(root) is not None,
+            "has_small": True,
+        }
     active = model_dir(root)
-    big = downloaded_model_dir(root)
-    bundled = bundled_model_dir(root)
     if active is None:
         return {"active": "none", "detail": "no model found"}
     name = active.name
-    if active == big:
+    if active == downloaded_model_dir(root):
         return {
             "active": "big",
             "name": name,
-            "detail": "Big model (1GB) - best accuracy",
+            "detail": "Vosk big model (1GB) - experimental",
             "has_big": True,
-            "has_small": bundled is not None,
+            "has_small": True,
         }
     return {
         "active": "small",
         "name": name,
-        "detail": "Small model (bundled) - fast, less accurate",
+        "detail": "Vosk small model (bundled)",
         "has_big": False,
         "has_small": True,
     }
@@ -241,7 +322,20 @@ def _load_model(root):
 
 
 def recognize_pcm(root, pcm_bytes, sample_rate=SAMPLE_RATE):
-    """Recognize 16-bit little-endian mono PCM. Returns text ('' on failure)."""
+    """Recognize 16-bit little-endian mono PCM.
+
+    Uses the bundled sherpa-onnx zipformer first (best accuracy, Japanese +
+    English) and falls back to Vosk if it is unavailable.
+    """
+    if sherpa_available(root):
+        text = _recognize_sherpa(root, pcm_bytes, sample_rate)
+        if text:
+            return text
+    return _recognize_vosk(root, pcm_bytes, sample_rate)
+
+
+def _recognize_vosk(root, pcm_bytes, sample_rate=SAMPLE_RATE):
+    """Recognize with a Vosk model."""
     model = _load_model(root)
     if model is None:
         return ""
@@ -462,22 +556,12 @@ def _normalize_gain(pcm, target_peak=12000, max_gain=400.0):
 
 
 def listen_and_recognize(root, seconds=5.0):
-    """Record and recognise in one pass, streaming audio into Vosk.
+    """Record and recognise in one pass.
 
     Returns (text, info) where info has bytes/rms/peak so the UI can say
     whether the failure was the microphone, the volume, or the language.
     """
-    import sys
     info = {"bytes": 0, "rms": 0.0, "peak": 0}
-    model = _load_model(root)
-    if model is None:
-        return "", info
-    vosk = _import_vosk()
-    try:
-        rec = vosk.KaldiRecognizer(model, SAMPLE_RATE)
-    except Exception as e:
-        _log(f"KaldiRecognizer failed: {e}")
-        return "", info
     pcm = capture_pcm(root, seconds)
     info["bytes"] = len(pcm)
     info["rms"], info["peak"] = _rms_peak(pcm)
@@ -487,21 +571,9 @@ def listen_and_recognize(root, seconds=5.0):
         return "", info
     pcm = _normalize_gain(pcm)
     info["rms"], info["peak"] = _rms_peak(pcm)
-    try:
-        rec.AcceptWaveform(pcm)
-        result = json.loads(rec.FinalResult())
-        text = (result.get("text") or "").strip()
-        if not text:
-            try:
-                partial = json.loads(rec.PartialResult() or "{}")
-                text = (partial.get("text") or "").strip()
-            except Exception:
-                text = ""
-        _log(f"recognized: {text!r} (bytes={info['bytes']}, rms={info['rms']:.0f})")
-        return text, info
-    except Exception as e:
-        _log(f"recognize failed: {type(e).__name__}: {e}")
-        return "", info
+    text = recognize_pcm(root, pcm)
+    _log(f"recognized: {text!r} (bytes={info['bytes']}, rms={info['rms']:.0f})")
+    return text, info
 
 
 def listen(root, seconds=5.0, on_done=None):

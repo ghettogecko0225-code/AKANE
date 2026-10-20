@@ -29,7 +29,7 @@ class RecordThread(QThread):
             rec = sd.rec(int(self.seconds * rate), samplerate=rate, channels=1, dtype="float32")
             sd.wait()
             samples = rec[:, 0]
-            text = transcribe_samples(samples)
+            text = transcribe_samples(samples, self.root)
             self.result.emit(text)
         except Exception as e:
             self.error.emit(str(e))

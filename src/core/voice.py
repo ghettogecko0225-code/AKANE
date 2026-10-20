@@ -58,7 +58,18 @@ def get_transcriber():
     return _whisper_model
 
 
-def transcribe_samples(samples_f32):
+def transcribe_samples(samples_f32, root=None):
+    """Transcribe float32 samples. Uses sherpa-onnx (fast, accurate for
+    Japanese) and falls back to faster-whisper."""
+    if root is not None:
+        try:
+            from core import asr
+            pcm = (samples_f32 * 32767).astype("int16").tobytes()
+            text = asr.recognize_pcm(str(root), pcm)
+            if text:
+                return text
+        except Exception:
+            pass
     m = get_transcriber()
     segments, _ = m.transcribe(samples_f32, language="ja", beam_size=1)
     return " ".join(seg.text.strip() for seg in segments).strip()

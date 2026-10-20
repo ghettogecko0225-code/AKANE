@@ -14,9 +14,10 @@ class ListenThread(QThread):
     result = pyqtSignal(str)
     error = pyqtSignal(str)
 
-    def __init__(self, seconds=4.0):
+    def __init__(self, seconds=4.0, root=None):
         super().__init__()
         self.seconds = seconds
+        self.root = root
 
     def run(self):
         try:
@@ -24,7 +25,7 @@ class ListenThread(QThread):
             rec = sd.rec(int(self.seconds * rate), samplerate=rate, channels=1, dtype="float32")
             sd.wait()
             samples = rec[:, 0]
-            text = transcribe_samples(samples)
+            text = transcribe_samples(samples, self.root)
             self.result.emit(text)
         except Exception as e:
             self.error.emit(str(e))
@@ -33,6 +34,7 @@ class ListenThread(QThread):
 class VoicePanel(QWidget):
     def __init__(self, parent=None, root=None):
         super().__init__(parent)
+        self.root = root
         self.speaker = Speaker(root)
         self.speaker.error.connect(lambda e: self.status.setText(f"TTS error: {e}"))
         self.speaker.done.connect(lambda: self.status.setText("Done speaking"))
@@ -72,7 +74,7 @@ class VoicePanel(QWidget):
     def listen(self):
         self.status.setText("Listening...")
         self.listen_btn.setEnabled(False)
-        self._listen_thread = ListenThread(4.0)
+        self._listen_thread = ListenThread(4.0, self.root)
         self._listen_thread.result.connect(self._on_heard)
         self._listen_thread.error.connect(self._on_listen_error)
         self._listen_thread.finished.connect(lambda: self.listen_btn.setEnabled(True))
