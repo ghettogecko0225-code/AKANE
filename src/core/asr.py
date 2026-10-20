@@ -55,10 +55,21 @@ def is_available(root):
 
 
 def _log(msg):
-    print(f"[asr] {msg}")
+    line = f"[asr] {msg}"
+    print(line)
     try:
         import sys
         sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        import os
+        from pathlib import Path
+        root = Path(__file__).resolve().parents[2]
+        log_dir = root / "data"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / "asr_log.txt", "a", encoding="utf-8") as f:
+            f.write(line + "\n")
     except Exception:
         pass
 
@@ -102,6 +113,25 @@ def recognize_pcm(root, pcm_bytes, sample_rate=SAMPLE_RATE):
         return ""
 
 
+def _rms_peak(pcm_bytes):
+    if len(pcm_bytes) < 2:
+        return 0.0, 0
+    import array
+    samples = array.array("h")
+    samples.frombytes(pcm_bytes[: len(pcm_bytes) - (len(pcm_bytes) % 2)])
+    if not samples:
+        return 0.0, 0
+    total = 0
+    peak = 0
+    for s in samples:
+        total += s * s
+        if s > peak:
+            peak = s
+        elif -s > peak:
+            peak = -s
+    return (total / len(samples)) ** 0.5, peak
+
+
 def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
     """Record mono 16-bit PCM with android.media.AudioRecord."""
     from jnius import autoclass
@@ -112,27 +142,56 @@ def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
             sample_rate, AudioRecord.CHANNEL_IN_MONO, AudioRecord.ENCODING_PCM_16BIT
         )
     )
-    buffer_size = max(buffer_size, 4096)
-    recorder = AudioRecord(
-        MediaRecorder.AudioSource.VOICE_RECOGNITION,
-        sample_rate,
-        AudioRecord.CHANNEL_IN_MONO,
-        AudioRecord.ENCODING_PCM_16BIT,
-        buffer_size,
-    )
-    if recorder.getState() != AudioRecord.STATE_INITIALIZED:
+    buffer_size = max(buffer_size * 2, 8192)
+    recorder = None
+    for source_name in ("VOICE_RECOGNITION", "MIC", "VOICE_COMMUNICATION"):
+        try:
+            source = getattr(MediaRecorder.AudioSource, source_name)
+        except Exception:
+            continue
+        try:
+            candidate = AudioRecord(
+                source,
+                sample_rate,
+                AudioRecord.CHANNEL_IN_MONO,
+                AudioRecord.ENCODING_PCM_16BIT,
+                buffer_size,
+            )
+        except Exception:
+            continue
+        if candidate.getState() == AudioRecord.STATE_INITIALIZED:
+            recorder = candidate
+            _log(f"AudioRecord ready (source={source_name}, buffer={buffer_size})")
+            break
+        try:
+            candidate.release()
+        except Exception:
+            pass
+    if recorder is None:
         raise RuntimeError("AudioRecord failed to initialize")
     recorder.startRecording()
     total = bytearray()
     try:
         import time
         deadline = time.time() + seconds
+        idle = 0
         while time.time() < deadline:
             chunk = bytearray(buffer_size)
-            read = recorder.read(chunk, 0, len(chunk))
-            if read <= 0:
+            try:
+                read = recorder.read(chunk, 0, len(chunk))
+            except Exception as e:
+                _log(f"AudioRecord.read failed: {e}")
                 break
-            total.extend(chunk[:read])
+            if read > 0:
+                total.extend(chunk[:read])
+                idle = 0
+            else:
+                # A short read is not a failure: keep waiting for data.
+                idle += 1
+                time.sleep(0.02)
+                if idle > 200:
+                    _log("AudioRecord returned no data repeatedly")
+                    break
     finally:
         try:
             recorder.stop()
@@ -142,7 +201,10 @@ def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
             recorder.release()
         except Exception:
             pass
-    return bytes(total)
+    pcm = bytes(total)
+    rms, peak = _rms_peak(pcm)
+    _log(f"captured {len(pcm)} bytes, rms={rms:.0f}, peak={peak}")
+    return pcm
 
 
 def capture_desktop_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
@@ -160,13 +222,48 @@ def capture_pcm(root, seconds=5.0):
     return capture_desktop_pcm(seconds)
 
 
+def listen_and_recognize(root, seconds=5.0):
+    """Record and recognise in one pass, streaming audio into Vosk."""
+    import sys
+    model = _load_model(root)
+    if model is None:
+        return ""
+    vosk = _import_vosk()
+    try:
+        rec = vosk.KaldiRecognizer(model, SAMPLE_RATE)
+    except Exception as e:
+        _log(f"KaldiRecognizer failed: {e}")
+        return ""
+    pcm = capture_pcm(root, seconds)
+    if not pcm:
+        _log("no audio captured")
+        return ""
+    try:
+        rec.AcceptWaveform(pcm)
+        result = json.loads(rec.FinalResult())
+        text = (result.get("text") or "").strip()
+        if not text:
+            # Fall back to the last partial result for short utterances.
+            try:
+                text = (rec.PartialResult() or "").strip()
+                if text:
+                    text = json.loads(text).get("text", "").strip()
+            except Exception:
+                text = ""
+        _log(f"recognized: {text!r}")
+        return text
+    except Exception as e:
+        _log(f"recognize failed: {type(e).__name__}: {e}")
+        return ""
+
+
 def listen(root, seconds=5.0, on_done=None):
     """Capture the microphone and recognize it. Calls on_done(text)."""
     def worker():
         try:
-            pcm = capture_pcm(root, seconds)
-            text = recognize_pcm(root, pcm)
-        except Exception:
+            text = listen_and_recognize(root, seconds)
+        except Exception as e:
+            _log(f"listen failed: {type(e).__name__}: {e}")
             text = ""
         if on_done:
             on_done(text)
