@@ -80,10 +80,12 @@ class SherpaOnnxRecipe(Recipe):
 
     def install_shared_libs(self, arch, install_dir):
         """Android's linker only searches the APK's native lib folder, so
-        libonnxruntime.so and the sherpa C-API libs must be copied there."""
+        libonnxruntime.so, the sherpa C-API libs and the NDK's C++ runtime
+        must be copied there."""
         import glob
-        libs_dir = self.ctx.get_libs_dir(arch.arch)
-        ensure_dir(libs_dir)
+        from pathlib import Path
+        libs_dir = Path(self.ctx.get_libs_dir(arch.arch))
+        ensure_dir(str(libs_dir))
         candidates = []
         for pattern in ("sherpa_onnx/lib/*.so", "sherpa_onnx.libs/*.so"):
             candidates.extend(glob.glob(join(install_dir, pattern)))
@@ -91,9 +93,14 @@ class SherpaOnnxRecipe(Recipe):
             name = basename(path)
             if name.startswith("_sherpa_onnx"):
                 continue
-            target = join(libs_dir, name)
             info(f"Installing native lib {name} into the APK lib folder")
-            shutil.copyfile(path, target)
+            shutil.copyfile(path, str(libs_dir / name))
+        libcpp = (
+            f"{self.ctx.ndk.sysroot_lib_dir}/{arch.command_prefix}/libc++_shared.so"
+        )
+        if exists(libcpp):
+            info("Copying libc++_shared.so from the NDK into the APK lib folder")
+            shutil.copyfile(libcpp, str(libs_dir / "libc++_shared.so"))
 
 
 recipe = SherpaOnnxRecipe()
