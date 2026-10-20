@@ -17,7 +17,10 @@ Created by Groq Side-Chat on 2026-10-18.
 - Android voice: core/android_speech.py uses Android native TextToSpeech + SpeechRecognizer via pyjnius. Gotchas found: interface is TextToSpeech$OnInitListener (NOT TextToVoice); RecognitionListener.onError takes a single int; setLanguage must be re-applied after onInit; RecognizerIntent.ACTION_RECOGNIZE_SPEECH is a String so you must build an Intent.
 - Offline audio pack: assets/audio (2,329 pre-rendered OGG clips, 41MB) + manifest.json, built by tools/build_audio_pack.py with the local piper voice. Guarantees Japanese audio on any device. core/audio_pack.py plays via MediaPlayer (Android) or soundfile (desktop).
 - APK signing: stable debug key at .keystore/sensei-debug.keystore (alias sensei / pass sensei123), re-signed in CI so updates install over the top without wiping data. A real release key must stay PRIVATE.
-- Japanese speech recognition on this phone: device has no Japanese model (error 7), so STT falls back ja -> ja-JP -> en-US. Install Japanese voice data in Settings > Google voice typing for real Japanese recognition.
+- Japanese speech recognition: bundled Vosk small-ja model (assets/asr, 94MB, Apache 2.0) = fully OFFLINE Japanese ASR inside the app. p4a has a built-in vosk recipe (prebuilt AAR, no compiler). Gotcha: vosk's open_dll() only accepts sys.platform linux/win32/darwin, so core/asr.py temporarily reports 'linux' while importing (verified on device via the app's own pythonbin).
+- Android mic capture for Vosk: android.media.AudioRecord via pyjnius (sounddevice has no Android support). core/asr.py capture_android_pcm() records 16kHz mono PCM16.
+- Pronunciation scoring is kanji/kana aware: core/speaking.py build_reading_map() maps 6,540 JLPT kanji words to hiragana so a kanji target scores fairly against kana speech.
+- Japanese speech recognition on this phone: device's own recognizer has no Japanese model (error 7), so the bundled Vosk model is the primary engine and the device engine is only a fallback.
 - GitHub repo: https://github.com/ghettogecko0225-code/Japanese-Sensei-AI (branch main).
 - Backups: D:\Backups\JAPANESE_SENSEI_AI_*.zip
 
