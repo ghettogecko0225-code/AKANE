@@ -64,6 +64,15 @@ def transcribe_samples(samples_f32):
     return " ".join(seg.text.strip() for seg in segments).strip()
 
 
+def transcribe_pcm(root, pcm_bytes):
+    """Offline Japanese recognition with the bundled Vosk model."""
+    try:
+        from core import asr
+        return asr.recognize_pcm(root, pcm_bytes)
+    except Exception:
+        return ""
+
+
 def play_wav(path):
     import sounddevice as sd
     with wave.open(path, "rb") as wf:

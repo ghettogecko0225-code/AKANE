@@ -10,7 +10,6 @@ def normalize_japanese(text):
         out.append(ch)
     return "".join(out)
 
-
 def levenshtein(a, b):
     if a == b:
         return 0

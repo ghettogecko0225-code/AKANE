@@ -48,6 +48,7 @@ from core.scheduler import Scheduler
 
 from core import android_speech
 from core.audio_pack import AudioPlayer
+from core import asr
 
 ANDROID = android_speech.is_available()
 
@@ -82,6 +83,49 @@ def _tts_error():
     if TTS is None:
         return "no audio available"
     return getattr(TTS, "last_error", "") or "audio unavailable"
+
+
+def _recognize_offline(on_text, on_error, seconds=5.0):
+    """Offline Japanese recognition with the bundled Vosk model."""
+    if not asr.is_available(ROOT):
+        on_error("offline model not available")
+        return False
+
+    def done(text):
+        if text:
+            on_text(text)
+        else:
+            on_error("no speech detected")
+
+    asr.listen(ROOT, seconds, done)
+    return True
+
+
+def _recognize_device(on_text, on_error):
+    """Android SpeechRecognizer with a language fallback chain."""
+    if not ANDROID:
+        on_error("speech recognition is Android-only")
+        return False
+
+    def on_result(text):
+        on_text(text)
+
+    def on_error_code(code):
+        if int(code) in (7, 8, 9, 12, 15):
+            on_error(
+                "no Japanese voice model on this phone - add Japanese in "
+                "Settings > Google voice typing"
+            )
+        else:
+            on_error(f"listen error ({code})")
+
+    try:
+        stt = android_speech.AndroidSTT("ja", fallbacks=("ja-JP", "en-US"))
+        stt.listen(on_result, on_error_code)
+        return True
+    except Exception as e:
+        on_error(f"listen error: {e}")
+        return False
 
 
 class BaseScreen(Screen):
@@ -237,32 +281,19 @@ class VoiceScreen(BaseScreen):
             self.status.text = f"Audio error: {_tts_error()}"
 
     def listen(self, *a):
-        if not ANDROID:
-            self.status.text = "Speech recognition is Android-only"
-            return
         self.status.text = "Listening..."
 
-        def on_result(text):
+        def on_text(text):
             self.heard.text = f"You said: {text}"
             self.status.text = "Heard"
-            if text:
-                self.input.text = text
+            self.input.text = text
 
-        def on_error(code):
-            if int(code) in (7, 8, 9, 12, 15):
-                self.status.text = (
-                    "No Japanese voice model on this phone. "
-                    "Add Japanese in Settings > Google voice typing (or use the "
-                    "audio pack drills)."
-                )
-            else:
-                self.status.text = f"Listen error ({code})"
+        def on_error(msg):
+            self.status.text = msg
+            _recognize_device(on_text, on_error)
 
-        try:
-            stt = android_speech.AndroidSTT("ja", fallbacks=("ja-JP", "en-US"))
-            stt.listen(on_result, on_error)
-        except Exception as e:
-            self.status.text = f"Listen error: {e}"
+        if not _recognize_offline(on_text, on_error):
+            _recognize_device(on_text, on_error)
 
 
 class TranslateScreen(BaseScreen):
@@ -506,31 +537,20 @@ class SpeakingScreen(BaseScreen):
     def record(self, *a):
         if self.current is None:
             return
-        if not ANDROID:
-            self.status.text = "Speech recognition is Android-only"
-            return
         self.status.text = "Listening..."
 
-        def on_result(text):
+        def on_text(text):
             self.heard.text = f"You said: {text}"
             r = score_pronunciation(self.current["ja"], text)
             self.result.text = f"Accuracy: {r['accuracy']}%"
             self.status.text = ""
 
-        def on_error(code):
-            if int(code) in (7, 8, 9, 12, 15):
-                self.status.text = (
-                    "No Japanese voice model on this phone - add Japanese in "
-                    "Settings > Google voice typing."
-                )
-            else:
-                self.status.text = f"Record error ({code})"
+        def on_error(msg):
+            self.status.text = msg
+            _recognize_device(on_text, on_error)
 
-        try:
-            stt = android_speech.AndroidSTT("ja", fallbacks=("ja-JP", "en-US"))
-            stt.listen(on_result, on_error)
-        except Exception as e:
-            self.status.text = f"Record error: {e}"
+        if not _recognize_offline(on_text, on_error):
+            _recognize_device(on_text, on_error)
 
 
 class NewsScreen(BaseScreen):
