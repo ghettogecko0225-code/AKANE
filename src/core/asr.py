@@ -1,35 +1,47 @@
-"""Offline speech recognition with Vosk.
+"""Offline speech recognition with sherpa-onnx.
 
-Works on Android and desktop. On Android the microphone is captured with
-android.media.AudioRecord (pyjnius) because sounddevice has no Android
-support; on desktop it uses sounddevice.
+sherpa-onnx runs a streaming Zipformer transducer built for Japanese and
+English (ReazonSpeech 2025 corpus). The int8 model is 70MB, loads in about
+3 seconds and transcribes faster than real time, all on-device.
 
-The Japanese model is bundled in assets/models/vosk and is Apache 2.0, so it
-can be redistributed in a commercial app.
+The Android build gets sherpa-onnx from a prebuilt Android wheel
+(cp314-cp314-android_24_arm64_v8a), so no compiler is needed.
+
+Audio capture on Android uses android.media.AudioRecord through pyjnius
+(sounddevice has no Android support).
 """
 import json
-import os
-import shutil
 import threading
 import urllib.request
-import zipfile
 from pathlib import Path
 
 SAMPLE_RATE = 16000
-
-BIG_MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-ja-0.22.zip"
-BIG_MODEL_NAME = "vosk-model-ja-0.22"
-SMALL_MODEL_NAME = "vosk-model-small-ja-0.22"
-
 SHERPA_DIRNAME = "asr_sherpa"
 
-_model_cache = {}
-_sherpa_cache = {}
 _lock = threading.Lock()
+_sherpa_cache = {}
+
+
+def _log(msg):
+    print(f"[asr] {msg}")
+    try:
+        import sys
+        sys.stdout.flush()
+    except Exception:
+        pass
+    try:
+        from pathlib import Path as _P
+        root = _P(__file__).resolve().parents[2]
+        log_dir = root / "data"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / "asr_log.txt", "a", encoding="utf-8") as f:
+            f.write(f"[asr] {msg}\n")
+    except Exception:
+        pass
 
 
 def sherpa_model_dir(root):
-    """The bundled sherpa-onnx zipformer (Japanese + English) model."""
+    """Folder holding the zipformer model (encoder/decoder/joiner/tokens)."""
     root = Path(root)
     for base in (root / "assets" / SHERPA_DIRNAME, root / "data" / SHERPA_DIRNAME):
         if not base.is_dir():
@@ -49,6 +61,40 @@ def sherpa_available(root):
     except Exception:
         return False
     return sherpa_model_dir(root) is not None
+
+
+def is_available(root):
+    """True when offline recognition is usable."""
+    return sherpa_available(root)
+
+
+def available_ram_mb():
+    """Free RAM in MB, or None if it cannot be determined."""
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) // 1024
+    except Exception:
+        pass
+    return None
+
+
+def model_info(root):
+    """Describe the active engine."""
+    if sherpa_available(root):
+        return {
+            "active": "sherpa",
+            "name": "sherpa-onnx zipformer ja-en (int8)",
+            "detail": "Best accuracy - Japanese + English, 70MB, fully offline",
+        }
+    return {"active": "none", "name": "none", "detail": "no model found"}
+
+
+def reset_model_cache():
+    """Drop the loaded model so the next use picks up a new one."""
+    with _lock:
+        _sherpa_cache.clear()
 
 
 def _load_sherpa(root):
@@ -82,7 +128,8 @@ def _load_sherpa(root):
             return None
 
 
-def _recognize_sherpa(root, pcm_bytes, sample_rate=SAMPLE_RATE):
+def recognize_pcm(root, pcm_bytes, sample_rate=SAMPLE_RATE):
+    """Recognize 16-bit little-endian mono PCM. Returns the text."""
     rec = _load_sherpa(root)
     if rec is None:
         return ""
@@ -97,261 +144,6 @@ def _recognize_sherpa(root, pcm_bytes, sample_rate=SAMPLE_RATE):
         return text
     except Exception as e:
         _log(f"sherpa recognize failed: {type(e).__name__}: {e}")
-        return ""
-
-
-def bundled_model_dir(root):
-    """The small model shipped inside the app."""
-    root = Path(root)
-    candidates = [root / "assets" / "asr", root / "assets" / "models" / "vosk"]
-    for base in candidates:
-        if not base.is_dir():
-            continue
-        for child in base.iterdir():
-            if child.is_dir() and (child / "am" / "final.mdl").exists():
-                return child
-    return None
-
-
-def downloaded_model_dir(root):
-    """The big model, if the user has downloaded it."""
-    path = Path(root) / "data" / "asr" / BIG_MODEL_NAME
-    if (path / "am" / "final.mdl").exists():
-        return path
-    return None
-
-
-def model_dir(root):
-    """The model in use: the downloaded big one if present, else bundled."""
-    return downloaded_model_dir(root) or bundled_model_dir(root)
-
-
-def model_info(root):
-    """Describe which engine/model is active."""
-    if sherpa_available(root):
-        return {
-            "active": "sherpa",
-            "name": "sherpa-onnx zipformer ja-en (int8)",
-            "detail": "Best accuracy - Japanese + English, 70MB, offline",
-            "has_big": downloaded_model_dir(root) is not None,
-            "has_small": True,
-        }
-    active = model_dir(root)
-    if active is None:
-        return {"active": "none", "detail": "no model found"}
-    name = active.name
-    if active == downloaded_model_dir(root):
-        return {
-            "active": "big",
-            "name": name,
-            "detail": "Vosk big model (1GB) - experimental",
-            "has_big": True,
-            "has_small": True,
-        }
-    return {
-        "active": "small",
-        "name": name,
-        "detail": "Vosk small model (bundled)",
-        "has_big": False,
-        "has_small": True,
-    }
-
-
-def reset_model_cache():
-    """Drop the loaded model so the next use picks up a new one."""
-    with _lock:
-        _model_cache.clear()
-
-
-def delete_big_model(root):
-    """Remove the downloaded big model and free the space."""
-    reset_model_cache()
-    target = Path(root) / "data" / "asr"
-    if not target.is_dir():
-        return False
-    removed = False
-    for child in target.iterdir():
-        try:
-            if child.is_dir():
-                shutil.rmtree(child)
-            else:
-                child.unlink()
-            removed = True
-        except Exception:
-            pass
-    return removed
-
-
-def download_big_model(root, on_progress=None, on_done=None, on_error=None):
-    """Download, unzip and install the 1GB Japanese model.
-
-    Runs in a background thread. on_progress(done_bytes, total_bytes) is
-    called with the download progress.
-    """
-
-    def worker():
-        try:
-            target = Path(root) / "data" / "asr"
-            target.mkdir(parents=True, exist_ok=True)
-            zip_path = target / (BIG_MODEL_NAME + ".zip")
-            _log(f"downloading {BIG_MODEL_URL}")
-            with urllib.request.urlopen(BIG_MODEL_URL, timeout=120) as resp:
-                total = int(resp.headers.get("Content-Length", 0))
-                done = 0
-                with open(zip_path, "wb") as f:
-                    while True:
-                        chunk = resp.read(1024 * 512)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-                        done += len(chunk)
-                        if on_progress:
-                            on_progress(done, total)
-            _log(f"download complete ({done} bytes), extracting")
-            with zipfile.ZipFile(zip_path) as archive:
-                archive.extractall(target)
-            try:
-                zip_path.unlink()
-            except Exception:
-                pass
-            installed = target / BIG_MODEL_NAME
-            if not (installed / "am" / "final.mdl").exists():
-                raise RuntimeError("model archive did not contain the model")
-            reset_model_cache()
-            _log(f"big model installed at {installed}")
-            if on_done:
-                on_done(str(installed))
-        except Exception as e:
-            _log(f"big model download failed: {type(e).__name__}: {e}")
-            if on_error:
-                on_error(e)
-
-    threading.Thread(target=worker, daemon=True).start()
-
-
-def _import_vosk():
-    """Import vosk, working around its Linux-only platform check.
-
-    vosk's open_dll() only accepts sys.platform 'linux'/'win32'/'darwin'.
-    Android reports 'android', so we present 'linux' for the import.
-    """
-    import sys
-    original = sys.platform
-    if original == "android":
-        sys.platform = "linux"
-    try:
-        import vosk
-        return vosk
-    finally:
-        sys.platform = original
-
-
-def is_available(root):
-    """True when any offline recognition engine is usable."""
-    if sherpa_available(root):
-        return True
-    try:
-        _import_vosk()
-    except Exception:
-        return False
-    return model_dir(root) is not None
-
-
-def _log(msg):
-    line = f"[asr] {msg}"
-    print(line)
-    try:
-        import sys
-        sys.stdout.flush()
-    except Exception:
-        pass
-    try:
-        import os
-        from pathlib import Path
-        root = Path(__file__).resolve().parents[2]
-        log_dir = root / "data"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        with open(log_dir / "asr_log.txt", "a", encoding="utf-8") as f:
-            f.write(line + "\n")
-    except Exception:
-        pass
-
-
-def available_ram_mb():
-    """Free RAM in MB, or None if it cannot be determined."""
-    try:
-        with open("/proc/meminfo", encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("MemAvailable:"):
-                    return int(line.split()[1]) // 1024
-    except Exception:
-        pass
-    return None
-
-
-def _load_model(root):
-    path = model_dir(root)
-    if path is None:
-        return None
-    key = str(path)
-    with _lock:
-        if key in _model_cache:
-            return _model_cache[key]
-        try:
-            vosk = _import_vosk()
-            vosk.SetLogLevel(-1)
-            model = vosk.Model(str(path))
-            _model_cache[key] = model
-            _log(f"vosk model loaded: {path.name}")
-            return model
-        except Exception as e:
-            _log(f"vosk model load failed for {path.name}: {type(e).__name__}: {e}")
-            # If the big model cannot be loaded (usually out of memory on a
-            # small phone) fall back to the bundled small model.
-            fallback = bundled_model_dir(root)
-            if fallback is not None and fallback != path:
-                _log(f"falling back to {fallback.name}")
-                try:
-                    vosk = _import_vosk()
-                    vosk.SetLogLevel(-1)
-                    model = vosk.Model(str(fallback))
-                    _model_cache[key] = model
-                    _model_cache[str(fallback)] = model
-                    return model
-                except Exception as e2:
-                    _log(f"small model load failed: {type(e2).__name__}: {e2}")
-            _model_cache[key] = None
-            return None
-
-
-def recognize_pcm(root, pcm_bytes, sample_rate=SAMPLE_RATE):
-    """Recognize 16-bit little-endian mono PCM.
-
-    Uses the bundled sherpa-onnx zipformer first (best accuracy, Japanese +
-    English) and falls back to Vosk if it is unavailable.
-    """
-    if sherpa_available(root):
-        text = _recognize_sherpa(root, pcm_bytes, sample_rate)
-        if text:
-            return text
-    return _recognize_vosk(root, pcm_bytes, sample_rate)
-
-
-def _recognize_vosk(root, pcm_bytes, sample_rate=SAMPLE_RATE):
-    """Recognize with a Vosk model."""
-    model = _load_model(root)
-    if model is None:
-        return ""
-    try:
-        vosk = _import_vosk()
-        rec = vosk.KaldiRecognizer(model, sample_rate)
-        rec.AcceptWaveform(pcm_bytes)
-        result = json.loads(rec.FinalResult())
-        text = (result.get("text") or "").strip()
-        _log(f"recognized: {text!r}")
-        return text
-    except Exception as e:
-        _log(f"recognize failed: {type(e).__name__}: {e}")
         return ""
 
 
@@ -372,6 +164,36 @@ def _rms_peak(pcm_bytes):
         elif -s > peak:
             peak = -s
     return (total / len(samples)) ** 0.5, peak
+
+
+def _normalize_gain(pcm, target_peak=12000, max_gain=400.0):
+    """Scale quiet microphone audio up to a level the recogniser can use.
+
+    Phone microphones often hand back very low amplitude audio (rms of a
+    few counts), which is effectively silence to a speech model.
+    """
+    import array
+    if not pcm:
+        return pcm
+    samples = array.array("h")
+    samples.frombytes(pcm[: len(pcm) - (len(pcm) % 2)])
+    if not samples:
+        return pcm
+    peak = 0
+    for s in samples:
+        a = s if s >= 0 else -s
+        if a > peak:
+            peak = a
+    if peak == 0 or peak >= target_peak:
+        return pcm
+    gain = min(target_peak / peak, max_gain)
+    for i, s in enumerate(samples):
+        v = int(s * gain)
+        samples[i] = 32767 if v > 32767 else (-32768 if v < -32768 else v)
+    out = samples.tobytes()
+    rms2, peak2 = _rms_peak(out)
+    _log(f"gain applied x{gain:.1f}: rms {rms2:.0f}, peak {peak2}")
+    return out
 
 
 def _resample_pcm(pcm, src_rate, dst_rate=SAMPLE_RATE):
@@ -528,36 +350,6 @@ def capture_pcm(root, seconds=5.0):
     return capture_desktop_pcm(seconds)
 
 
-def _normalize_gain(pcm, target_peak=12000, max_gain=400.0):
-    """Scale quiet microphone audio up to a level the recogniser can use.
-
-    Phone microphones often hand back very low amplitude audio (rms of a
-    few counts), which is effectively silence to a speech model.
-    """
-    import array
-    if not pcm:
-        return pcm
-    samples = array.array("h")
-    samples.frombytes(pcm[: len(pcm) - (len(pcm) % 2)])
-    if not samples:
-        return pcm
-    peak = 0
-    for s in samples:
-        a = s if s >= 0 else -s
-        if a > peak:
-            peak = a
-    if peak == 0 or peak >= target_peak:
-        return pcm
-    gain = min(target_peak / peak, max_gain)
-    for i, s in enumerate(samples):
-        v = int(s * gain)
-        samples[i] = 32767 if v > 32767 else (-32768 if v < -32768 else v)
-    out = samples.tobytes()
-    rms2, peak2 = _rms_peak(out)
-    _log(f"gain applied x{gain:.1f}: rms {rms2:.0f}, peak {peak2}")
-    return out
-
-
 def listen_and_recognize(root, seconds=5.0):
     """Record and recognise in one pass.
 
@@ -586,7 +378,7 @@ def listen(root, seconds=5.0, on_done=None):
             text, info = listen_and_recognize(root, seconds)
         except Exception as e:
             _log(f"listen failed: {type(e).__name__}: {e}")
-            text, info = "", {"bytes": 0, "rms": 0.0, "peak": 0}
+            text, info = "", {"bytes": 0, "rms": 0.0, "peak": 0, "raw_peak": 0}
         if on_done:
             on_done(text, info)
 

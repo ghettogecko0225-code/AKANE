@@ -11,6 +11,7 @@ a = Analysis(
         ('assets/immersion', 'assets/immersion'),
         ('assets/fonts', 'assets/fonts'),
         ('assets/audio', 'assets/audio'),
+        ('assets/asr_sherpa', 'assets/asr_sherpa'),
     ],
     hiddenimports=[
         'core',

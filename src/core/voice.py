@@ -76,7 +76,7 @@ def transcribe_samples(samples_f32, root=None):
 
 
 def transcribe_pcm(root, pcm_bytes):
-    """Offline Japanese recognition with the bundled Vosk model."""
+    """Offline Japanese recognition with the bundled sherpa-onnx model."""
     try:
         from core import asr
         return asr.recognize_pcm(root, pcm_bytes)
