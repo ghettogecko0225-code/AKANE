@@ -7,7 +7,9 @@ __pycache__/
 !JapaneseSenseiAI.spec
 models/
 dist/JapaneseSenseiAI/models/
+data/
 data/sensei.db
+data/asr_log.txt
 assets/openjlpt/.git
 sessions/
 *.zip

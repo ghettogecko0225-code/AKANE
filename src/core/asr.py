@@ -247,6 +247,9 @@ def _import_vosk():
 
 
 def is_available(root):
+    """True when any offline recognition engine is usable."""
+    if sherpa_available(root):
+        return True
     try:
         _import_vosk()
     except Exception:

@@ -1,9 +1,0 @@
-[asr] vosk model loaded: vosk-model-small-ja-0.22
-[asr] recognized: '今日 は いい 天気 です ね'
-[asr] gain applied x75.0: rms 2839, peak 12000
-[asr] vosk model loaded: vosk-model-small-ja-0.22
-[asr] recognized: '今日 は いい 天気 です ね'
-[asr] sherpa recognizer ready: asr_sherpa
-[asr] sherpa recognized: '今日はいい天気ですね'
-[asr] sherpa recognizer ready: asr_sherpa
-[asr] sherpa recognized: '今日はいい天気ですね'
