@@ -42,7 +42,7 @@ from core.seed import load_deck_from_json
 from core.import_openjlpt import import_all as import_openjlpt_all
 from core.translator import translate
 from core.immersion import load_passages, listening_items
-from core.speaking import score_pronunciation
+from core.speaking import score_pronunciation, build_reading_map
 from core.workbook import WorkbookEngine
 from core.scheduler import Scheduler
 
@@ -95,7 +95,7 @@ def _recognize_offline(on_text, on_error, seconds=5.0):
         if text:
             on_text(text)
         else:
-            on_error("no speech detected")
+            on_error("no speech heard - try again, closer to the mic")
 
     asr.listen(ROOT, seconds, done)
     return True
@@ -126,6 +126,13 @@ def _recognize_device(on_text, on_error):
     except Exception as e:
         on_error(f"listen error: {e}")
         return False
+
+
+def _start_listening(on_text, on_error):
+    """Prefer the bundled offline model; fall back to the device engine."""
+    if _recognize_offline(on_text, on_error):
+        return
+    _recognize_device(on_text, on_error)
 
 
 class BaseScreen(Screen):
@@ -281,7 +288,7 @@ class VoiceScreen(BaseScreen):
             self.status.text = f"Audio error: {_tts_error()}"
 
     def listen(self, *a):
-        self.status.text = "Listening..."
+        self.status.text = "Listening (offline Japanese model)..."
 
         def on_text(text):
             self.heard.text = f"You said: {text}"
@@ -290,10 +297,8 @@ class VoiceScreen(BaseScreen):
 
         def on_error(msg):
             self.status.text = msg
-            _recognize_device(on_text, on_error)
 
-        if not _recognize_offline(on_text, on_error):
-            _recognize_device(on_text, on_error)
+        _start_listening(on_text, on_error)
 
 
 class TranslateScreen(BaseScreen):
@@ -537,20 +542,20 @@ class SpeakingScreen(BaseScreen):
     def record(self, *a):
         if self.current is None:
             return
-        self.status.text = "Listening..."
+        self.status.text = "Listening (offline Japanese model)..."
 
         def on_text(text):
             self.heard.text = f"You said: {text}"
-            r = score_pronunciation(self.current["ja"], text)
+            r = score_pronunciation(
+                self.current["ja"], text, build_reading_map(ROOT)
+            )
             self.result.text = f"Accuracy: {r['accuracy']}%"
             self.status.text = ""
 
         def on_error(msg):
             self.status.text = msg
-            _recognize_device(on_text, on_error)
 
-        if not _recognize_offline(on_text, on_error):
-            _recognize_device(on_text, on_error)
+        _start_listening(on_text, on_error)
 
 
 class NewsScreen(BaseScreen):

@@ -54,6 +54,15 @@ def is_available(root):
     return model_dir(root) is not None
 
 
+def _log(msg):
+    print(f"[asr] {msg}")
+    try:
+        import sys
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
 def _load_model(root):
     path = model_dir(root)
     if path is None:
@@ -67,8 +76,10 @@ def _load_model(root):
             vosk.SetLogLevel(-1)
             model = vosk.Model(str(path))
             _model_cache[key] = model
+            _log(f"vosk model loaded: {path.name}")
             return model
-        except Exception:
+        except Exception as e:
+            _log(f"vosk model load failed: {type(e).__name__}: {e}")
             _model_cache[key] = None
             return None
 
@@ -83,8 +94,11 @@ def recognize_pcm(root, pcm_bytes, sample_rate=SAMPLE_RATE):
         rec = vosk.KaldiRecognizer(model, sample_rate)
         rec.AcceptWaveform(pcm_bytes)
         result = json.loads(rec.FinalResult())
-        return (result.get("text") or "").strip()
-    except Exception:
+        text = (result.get("text") or "").strip()
+        _log(f"recognized: {text!r}")
+        return text
+    except Exception as e:
+        _log(f"recognize failed: {type(e).__name__}: {e}")
         return ""
 
 

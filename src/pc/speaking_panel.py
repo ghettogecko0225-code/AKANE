@@ -12,7 +12,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from core.voice import transcribe_samples
 from core.immersion import listening_items
-from core.speaking import score_pronunciation
+from core.speaking import score_pronunciation, build_reading_map
 
 
 class RecordThread(QThread):
@@ -105,7 +105,7 @@ class SpeakingPanel(QWidget):
         self.heard_label.setText(f"You said: {text}")
         if self.current is None:
             return
-        r = score_pronunciation(self.current["ja"], text)
+            r = score_pronunciation(self.current["ja"], text, build_reading_map(self.root))
         self.score_label.setText(f"Accuracy: {r['accuracy']}%  (distance {r['distance']})")
 
     def on_error(self, err):
