@@ -132,11 +132,35 @@ def _rms_peak(pcm_bytes):
     return (total / len(samples)) ** 0.5, peak
 
 
+def _resample_pcm(pcm, src_rate, dst_rate=SAMPLE_RATE):
+    """Linear resample of 16-bit PCM (used when the mic refuses 16 kHz)."""
+    if src_rate == dst_rate or not pcm:
+        return pcm
+    import array
+    src = array.array("h")
+    src.frombytes(pcm[: len(pcm) - (len(pcm) % 2)])
+    if len(src) < 2:
+        return pcm
+    n_out = int(len(src) * dst_rate / src_rate)
+    out = array.array("h", bytes(2 * n_out))
+    step = src_rate / dst_rate
+    for i in range(n_out):
+        pos = i * step
+        i0 = int(pos)
+        if i0 >= len(src) - 1:
+            out[i] = src[-1]
+            continue
+        frac = pos - i0
+        out[i] = int(src[i0] * (1 - frac) + src[i0 + 1] * frac)
+    return out.tobytes()
+
+
 def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
     """Record mono 16-bit PCM with android.media.AudioRecord.
 
     The channel/encoding constants live on android.media.AudioFormat, not
-    on AudioRecord.
+    on AudioRecord. Some devices refuse VOICE_RECOGNITION, so several
+    sources and sample rates are tried before giving up.
     """
     from jnius import autoclass
     AudioRecord = autoclass("android.media.AudioRecord")
@@ -144,33 +168,58 @@ def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
     MediaRecorder = autoclass("android.media.MediaRecorder")
     channel = AudioFormat.CHANNEL_IN_MONO
     encoding = AudioFormat.ENCODING_PCM_16BIT
-    buffer_size = int(AudioRecord.getMinBufferSize(sample_rate, channel, encoding))
-    buffer_size = max(buffer_size * 2, 8192)
+
+    try:
+        AudioManager = autoclass("android.media.AudioManager")
+        activity = autoclass("org.kivy.android.PythonActivity").mActivity
+        manager = activity.getSystemService("audio")
+        mics = manager.getMicrophones()
+        _log(f"device microphones: {mics.size() if mics else 0}")
+    except Exception as e:
+        _log(f"microphone check failed: {type(e).__name__}: {e}")
+
+    sources = ["VOICE_RECOGNITION", "MIC", "VOICE_COMMUNICATION", "DEFAULT"]
+    rates = [sample_rate, 48000, 44100]
     recorder = None
-    for source_name in ("VOICE_RECOGNITION", "MIC", "VOICE_COMMUNICATION"):
+    used_rate = sample_rate
+    for rate in rates:
         try:
-            source = getattr(MediaRecorder.AudioSource, source_name)
+            min_buffer = int(AudioRecord.getMinBufferSize(rate, channel, encoding))
         except Exception:
-            continue
-        try:
-            candidate = AudioRecord(
-                source,
-                sample_rate,
-                channel,
-                encoding,
-                buffer_size,
-            )
-        except Exception as e:
-            _log(f"AudioRecord({source_name}) failed: {e}")
-            continue
-        if candidate.getState() == AudioRecord.STATE_INITIALIZED:
-            recorder = candidate
-            _log(f"AudioRecord ready (source={source_name}, buffer={buffer_size})")
+            min_buffer = 0
+        if min_buffer <= 0:
+            _log(f"getMinBufferSize({rate}) -> {min_buffer}")
+        buffer_size = max(min_buffer * 2, 8192)
+        for source_name in sources:
+            try:
+                source = getattr(MediaRecorder.AudioSource, source_name)
+            except Exception:
+                continue
+            try:
+                candidate = AudioRecord(source, rate, channel, encoding, buffer_size)
+            except Exception as e:
+                _log(f"AudioRecord({source_name},{rate}) raised {type(e).__name__}: {e}")
+                continue
+            try:
+                state = candidate.getState()
+            except Exception as e:
+                state = -1
+                _log(f"getState failed: {e}")
+            if state == AudioRecord.STATE_INITIALIZED:
+                recorder = candidate
+                used_rate = rate
+                _log(
+                    f"AudioRecord ready: source={source_name} rate={rate} "
+                    f"buffer={buffer_size}"
+                )
+                break
+            _log(f"AudioRecord({source_name},{rate}) state={state}")
+            try:
+                candidate.release()
+            except Exception:
+                pass
+        if recorder is not None:
             break
-        try:
-            candidate.release()
-        except Exception:
-            pass
     if recorder is None:
         raise RuntimeError("AudioRecord failed to initialize")
     recorder.startRecording()
@@ -207,7 +256,10 @@ def capture_android_pcm(seconds=5.0, sample_rate=SAMPLE_RATE):
             pass
     pcm = bytes(total)
     rms, peak = _rms_peak(pcm)
-    _log(f"captured {len(pcm)} bytes, rms={rms:.0f}, peak={peak}")
+    _log(f"captured {len(pcm)} bytes at {used_rate}Hz, rms={rms:.0f}, peak={peak}")
+    if used_rate != sample_rate:
+        pcm = _resample_pcm(pcm, used_rate, sample_rate)
+        _log(f"resampled to {sample_rate}Hz: {len(pcm)} bytes")
     return pcm
 
 
