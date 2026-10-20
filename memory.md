@@ -13,7 +13,11 @@ Created by Groq Side-Chat on 2026-10-18.
 - Tests: 9/9 passing (pytest via Studio venv).
 - Runtime: Studio venv (Python 3.10) + PyQt6 installed there.
 - Windows .exe built: dist/JapaneseSenseiAI/JapaneseSenseiAI.exe (PyInstaller).
-- Android APK: built via GitHub Actions (buildozer + Kivy), installed on phone as org.sensei.japanesesensei. Flashcards + Workbook + Reading work on phone. Voice/Translate disabled on mobile (no numpy/ML on Android). Japanese font (assets/fonts/msgothic.ttc) required for hiragana rendering.
+- Android APK: built via GitHub Actions (buildozer + Kivy), installed on phone as org.sensei.japanesesensei. All 10 screens working (Flashcards, Voice, Translate, Workbook, Reading, Listening, Speaking, News, Shadowing, Progress). Full JLPT content (18 decks / 10,832 cards) bundled in assets/jlpt and imported on first run. Verified on device: 18 decks, 10,832 cards, Japanese TTS speaking (ja-JP), audio pack playing via MediaPlayer.
+- Android voice: core/android_speech.py uses Android native TextToSpeech + SpeechRecognizer via pyjnius. Gotchas found: interface is TextToSpeech$OnInitListener (NOT TextToVoice); RecognitionListener.onError takes a single int; setLanguage must be re-applied after onInit; RecognizerIntent.ACTION_RECOGNIZE_SPEECH is a String so you must build an Intent.
+- Offline audio pack: assets/audio (2,329 pre-rendered OGG clips, 41MB) + manifest.json, built by tools/build_audio_pack.py with the local piper voice. Guarantees Japanese audio on any device. core/audio_pack.py plays via MediaPlayer (Android) or soundfile (desktop).
+- APK signing: stable debug key at .keystore/sensei-debug.keystore (alias sensei / pass sensei123), re-signed in CI so updates install over the top without wiping data. A real release key must stay PRIVATE.
+- Japanese speech recognition on this phone: device has no Japanese model (error 7), so STT falls back ja -> ja-JP -> en-US. Install Japanese voice data in Settings > Google voice typing for real Japanese recognition.
 - GitHub repo: https://github.com/ghettogecko0225-code/Japanese-Sensei-AI (branch main).
 - Backups: D:\Backups\JAPANESE_SENSEI_AI_*.zip
 

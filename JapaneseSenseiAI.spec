@@ -10,6 +10,7 @@ a = Analysis(
         ('lang', 'lang'),
         ('assets/immersion', 'assets/immersion'),
         ('assets/fonts', 'assets/fonts'),
+        ('assets/audio', 'assets/audio'),
     ],
     hiddenimports=[
         'core',
@@ -25,6 +26,8 @@ a = Analysis(
         'core.import_openjlpt',
         'core.seed',
         'core.paths',
+        'core.audio_pack',
+        'soundfile',
         'pc.main_window',
         'pc.flashcard_view',
         'pc.voice_panel',
