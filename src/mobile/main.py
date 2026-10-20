@@ -205,10 +205,14 @@ class VoiceScreen(BaseScreen):
         if not text:
             return
         if _tts_speak(text):
-            self.status.text = "Speaking..."
-            ok, msg = android_speech.tts_language_status()
-            if not ok:
-                self.status.text = f"Speaking... ({msg})"
+            lang_res = getattr(TTS, "language_result", -1) if TTS else -1
+            if lang_res is not None and int(lang_res) < 0:
+                self.status.text = (
+                    "Spoke, but no Japanese voice on device. "
+                    "Settings > Google TTS > Languages > install Japanese."
+                )
+            else:
+                self.status.text = "Speaking..."
         else:
             self.status.text = f"TTS error: {_tts_error()}"
 

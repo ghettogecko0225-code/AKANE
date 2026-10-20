@@ -141,6 +141,7 @@ class AndroidTTS:
         self.last_error = ""
         self._ready = False
         self._pending = None
+        self.language_result = -1
 
     @property
     def ready(self):
@@ -148,10 +149,14 @@ class AndroidTTS:
 
     def _on_init(self, status):
         self._ready = (status == 0)
-        if self._ready and self._pending:
-            text = self._pending
-            self._pending = None
-            self._speak_now(text)
+        if self._ready:
+            # The engine is only fully bound after onInit, so the language
+            # has to be (re)applied here or setLanguage reports LANG_NOT_SUPPORTED.
+            self.set_language(self.lang)
+            if self._pending:
+                text = self._pending
+                self._pending = None
+                self._speak_now(text)
 
     def _ensure(self):
         if self._tts is not None:
@@ -179,14 +184,28 @@ class AndroidTTS:
         tts = self._tts
         if not tts:
             return False
+        target = lang or self.lang
         try:
             from jnius import autoclass
             Locale = autoclass("java.util.Locale")
-            code = (lang or self.lang).split("-")
-            loc = Locale(code[0], code[1] if len(code) > 1 else "")
-            result = int(tts.setLanguage(loc))
-            _log(f"setLanguage({lang}) -> {result}")
-            return result >= 0
+            parts = target.split("-")
+            candidates = [(parts[0], parts[1] if len(parts) > 1 else "")]
+            if parts[0] == "ja" and candidates[0][1]:
+                candidates.append(("ja", ""))
+            best = -1
+            for language, country in candidates:
+                loc = Locale(language, country)
+                try:
+                    avail = int(tts.isLanguageAvailable(loc))
+                except Exception:
+                    avail = -1
+                result = int(tts.setLanguage(loc))
+                _log(f"setLanguage({language}-{country}) avail={avail} -> {result}")
+                if result >= 0:
+                    best = result
+                    break
+            self.language_result = best
+            return best >= 0
         except Exception as e:
             self.last_error = f"{type(e).__name__}: {e}"
             _log(f"setLanguage failed: {self.last_error}")
@@ -328,7 +347,8 @@ class AndroidSTT:
             try:
                 from jnius import autoclass
                 RecognizerIntent = autoclass("android.speech.RecognizerIntent")
-                intent = RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+                Intent = autoclass("android.content.Intent")
+                intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                 intent.putExtra(
                     RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                     RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,

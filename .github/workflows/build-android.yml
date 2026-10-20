@@ -37,6 +37,21 @@ jobs:
       - name: Build APK
         run: |
           yes | buildozer android debug
+      - name: Re-sign APK with stable key
+        run: |
+          BT=$(ls -d $HOME/.buildozer/android/platform/android-sdk/build-tools/* | tail -1)
+          echo "using $BT"
+          for apk in bin/*.apk; do
+            "$BT/zipalign" -p 4 "$apk" "$apk.aligned"
+            "$BT/apksigner" sign \
+              --ks .keystore/sensei-debug.keystore \
+              --ks-pass pass:sensei123 \
+              --ks-key-alias sensei \
+              --key-pass pass:sensei123 \
+              "$apk.aligned"
+            mv "$apk.aligned" "$apk"
+            "$BT/apksigner" verify --print-certs "$apk" | head -3
+          done
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
