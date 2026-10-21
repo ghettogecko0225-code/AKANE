@@ -93,6 +93,18 @@ def _check(label):
     return CheckBox(size_hint=(None, 0.05))
 
 
+def _wrap(label):
+    """Make a Kivy label wrap its text to its own width."""
+    label.halign = "left"
+    label.valign = "middle"
+
+    def _resize(inst, value):
+        inst.text_size = (value, None)
+
+    label.bind(width=_resize)
+    return label
+
+
 def card_bg(widget, color, radius=14):
     """Give a Kivy widget a rounded background."""
     from kivy.graphics import Color, RoundedRectangle
@@ -832,38 +844,42 @@ class TodayScreen(BaseScreen):
         self.session = []
         self.index = 0
         self.reviewed = 0
-        self.plan_box = BoxLayout(orientation="vertical", size_hint=(1, None))
+        self.plan_box = BoxLayout(orientation="vertical", size_hint=(1, 0.40))
         self.box.add_widget(self.plan_box)
-        self.big = Label(text="", font_size=30, size_hint=(1, 0.12))
+        self.big = Label(text="", font_size=28, size_hint=(1, 0.30))
         self.plan_box.add_widget(self.big)
-        self.detail = Label(text="", size_hint=(1, 0.12))
+        self.detail = Label(text="", size_hint=(1, 0.28))
+        _wrap(self.detail)
         self.plan_box.add_widget(self.detail)
-        self.hint = Label(text="", size_hint=(1, 0.1))
+        self.hint = Label(text="", size_hint=(1, 0.14))
+        _wrap(self.hint)
         self.plan_box.add_widget(self.hint)
-        self.start_btn = Button(text="Start today's session", size_hint=(1, 0.11))
+        self.start_btn = Button(text="Start today's session", size_hint=(1, 0.28))
         self.start_btn.bind(on_press=self.start_session)
         self.plan_box.add_widget(self.start_btn)
 
-        self.card_area = BoxLayout(orientation="vertical", size_hint=(1, None))
+        self.card_area = BoxLayout(orientation="vertical", size_hint=(1, 0.40))
         self.box.add_widget(self.card_area)
-        self.progress = Label(text="", size_hint=(1, 0.08))
+        self.progress = Label(text="", size_hint=(1, 0.12))
         self.card_area.add_widget(self.progress)
-        self.prompt = Label(text="", font_size=44, size_hint=(1, 0.24))
+        self.prompt = Label(text="", font_size=40, size_hint=(1, 0.36))
         card_bg(self.prompt, palette(settings.get(ROOT, "theme", "dark"))["card"])
         self.card_area.add_widget(self.prompt)
-        self.answer = Label(text="", font_size=20, size_hint=(1, 0.16))
+        self.answer = Label(text="", font_size=18, size_hint=(1, 0.20))
         self.card_area.add_widget(self.answer)
-        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.16), spacing=4)
         self.flip_btn = Button(text="Show answer")
         self.flip_btn.bind(on_press=self.flip)
         row.add_widget(self.flip_btn)
         self.card_area.add_widget(row)
-        rate_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=2)
+        rate_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.16), spacing=2)
         for q in range(6):
             b = Button(text=str(q))
             b.bind(on_press=lambda x, qq=q: self.rate(qq))
             rate_row.add_widget(b)
         self.card_area.add_widget(rate_row)
+        self.status = Label(text="", size_hint=(1, 0.07))
+        self.box.add_widget(self.status)
         self.add_home_button()
         self.show_plan()
 
