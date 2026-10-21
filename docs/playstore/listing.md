@@ -96,7 +96,7 @@ Benkyo means "study" in Japanese. 勉強.
 |---|---|---|
 | App icon | 512 x 512 PNG, 32-bit | `assets/brand/icon.png` - done |
 | Feature graphic | 1024 x 500 PNG/JPG | **done** - `assets/brand/play_feature_graphic_1024x500.png` |
-| Phone screenshots | at least 2, 16:9, 1080 x 1920 | **to take** - Today plan, Flashcards, Speak practice, Progress, Reading |
+| Phone screenshots | at least 2, 16:9, 1080 x 1920 | **done** - `assets/store_screenshots/` (6 real captures from the phone) |
 | 7-inch tablet | optional | skip at launch |
 | Privacy policy URL | required | `docs/playstore/privacy-policy.html` - publish to Google Sites (free) |
 | Short description | 80 chars | above |
