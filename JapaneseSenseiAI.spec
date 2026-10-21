@@ -73,7 +73,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/myoc.ico',
+    icon='assets/brand/app.ico',
 )
 
 coll = COLLECT(

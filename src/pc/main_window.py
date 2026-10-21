@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem,
-    QLabel, QPushButton, QComboBox, QTabWidget,
+    QLabel, QPushButton, QComboBox, QTabWidget, QApplication,
 )
 from PyQt6.QtCore import Qt
 
@@ -13,6 +13,8 @@ from core.flashcards import FlashCardEngine
 from core.progress import ProgressTracker
 from core.seed import load_deck_from_json
 from core.import_openjlpt import import_all as import_openjlpt_all
+from core import study
+from core.theme import qt_stylesheet
 from pc.flashcard_view import FlashCardView
 from pc.voice_panel import VoicePanel
 from pc.translate_panel import TranslatePanel
@@ -50,6 +52,13 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(central)
 
         sidebar = QVBoxLayout()
+        self.today_label = QLabel("")
+        self.today_label.setWordWrap(True)
+        sidebar.addWidget(self.today_label)
+        today_btn = QPushButton("Study today's plan")
+        today_btn.clicked.connect(self.start_today)
+        sidebar.addWidget(today_btn)
+
         sidebar.addWidget(QLabel("Hive"))
         self.hive_combo = QComboBox()
         for h in hives:
@@ -73,11 +82,16 @@ class MainWindow(QMainWindow):
         about_btn.clicked.connect(self.show_credits)
         sidebar.addWidget(about_btn)
 
+        settings_btn = QPushButton("Settings")
+        settings_btn.clicked.connect(self.show_settings)
+        sidebar.addWidget(settings_btn)
+
         self.stats_label = QLabel("")
         sidebar.addWidget(self.stats_label)
         layout.addLayout(sidebar, 1)
 
         tabs = QTabWidget()
+        self.tabs = tabs
         self.view = FlashCardView(self.engine, self.progress)
         tabs.addTab(self.view, "Flashcards")
         self.voice_panel = VoicePanel(root=self.root)
@@ -102,6 +116,11 @@ class MainWindow(QMainWindow):
 
         self.deck_list.itemDoubleClicked.connect(lambda _: self.load_selected_deck())
         self.refresh_stats()
+        self.refresh_today()
+        app = QApplication.instance()
+        if app is not None:
+            from core.settings import load as load_settings
+            app.setStyleSheet(qt_stylesheet(load_settings(str(self.root)).get("theme", "dark")))
         self.refresh_decks()
 
         data_dir = self.root / "assets" / "openjlpt" / "data" / "json"
@@ -141,6 +160,60 @@ class MainWindow(QMainWindow):
         streak = self.progress.streak(lang)
         total = self.progress.total_cards(lang)
         self.stats_label.setText(f"Streak: {streak} days\nCards reviewed: {total}")
+
+    def refresh_today(self):
+        p = study.plan(self.engine, str(self.root), lang="ja")
+        remaining = max(p["planned"] - p["done_today"], 0)
+        self.today_label.setText(
+            f"Today: {remaining} to go\n"
+            f"due {p['due']} | new {p['new']} | done {p['done_today']}"
+        )
+
+    def start_today(self):
+        cards = study.build_session(self.engine, str(self.root), lang="ja")
+        if not cards:
+            self.today_label.setText("Nothing to study in the selected decks")
+            return
+        self.view.start_session(cards)
+        self.tabs.setCurrentIndex(0)
+        self.refresh_today()
+
+    def show_settings(self):
+        from PyQt6.QtWidgets import (
+            QCheckBox, QDialog, QDialogButtonBox, QSpinBox, QFormLayout,
+        )
+        from core import settings as app_settings
+        from core.theme import palette, qt_stylesheet
+
+        current = app_settings.load(str(self.root))
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Settings")
+        form = QFormLayout(dialog)
+        goal = QSpinBox()
+        goal.setRange(5, 500)
+        goal.setValue(int(current.get("daily_goal", 30)))
+        new_per = QSpinBox()
+        new_per.setRange(0, 100)
+        new_per.setValue(int(current.get("new_per_day", 15)))
+        rev_per = QSpinBox()
+        rev_per.setRange(10, 500)
+        rev_per.setValue(int(current.get("review_per_day", 100)))
+        form.addRow("Daily goal (cards)", goal)
+        form.addRow("New cards per day", new_per)
+        form.addRow("Reviews per day", rev_per)
+        boxes = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        form.addRow(boxes)
+        boxes.accepted.connect(dialog.accept)
+        boxes.rejected.connect(dialog.reject)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            app_settings.save(str(self.root), {
+                "daily_goal": goal.value(),
+                "new_per_day": new_per.value(),
+                "review_per_day": rev_per.value(),
+            })
+            self.refresh_today()
 
     def show_credits(self):
         from PyQt6.QtWidgets import QMessageBox

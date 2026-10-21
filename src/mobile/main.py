@@ -50,6 +50,9 @@ from core.scheduler import Scheduler
 from core import android_speech
 from core.audio_pack import AudioPlayer
 from core import asr
+from core import settings
+from core import study
+from core.theme import palette
 
 ANDROID = android_speech.is_available()
 
@@ -78,6 +81,34 @@ def _speak(text):
         except Exception:
             return False
     return False
+
+
+def _spinner(values):
+    from kivy.uix.spinner import Spinner
+    return Spinner(text=str(values[0]), values=[str(v) for v in values], size_hint=(1, 0.08))
+
+
+def _check(label):
+    from kivy.uix.checkbox import CheckBox
+    return CheckBox(size_hint=(None, 0.05))
+
+
+def apply_theme(theme_name="dark"):
+    """Apply the shared colour palette to the whole app."""
+    c = palette(theme_name)
+    for item in App.get_running_app().root.walk():
+        try:
+            if isinstance(item, Label):
+                item.color = c["text"] if item.font_size and item.font_size >= 18 else c["text_dim"]
+            elif isinstance(item, Button):
+                item.background_color = c["panel"]
+                item.color = c["text"]
+        except Exception:
+            pass
+    try:
+        Window.clearcolor = c["bg"]
+    except Exception:
+        pass
 
 
 def _tts_error():
@@ -181,9 +212,9 @@ class HomeScreen(BaseScreen):
         self.spinner = Spinner(text="Choose deck", values=self.deck_items, size_hint=(1, 0.09))
         self.spinner.bind(text=self.on_deck)
         self.box.add_widget(self.spinner)
-        for name in ["Flashcards", "Voice", "Translate", "Workbook", "Reading",
+        for name in ["Today", "Flashcards", "Voice", "Translate", "Workbook", "Reading",
                      "Listening", "Speaking", "News", "Shadowing", "Model",
-                     "Progress", "About"]:
+                     "Progress", "Settings", "About"]:
             btn = Button(text=name, size_hint=(1, 0.075))
             btn.bind(on_press=lambda x, n=name: self.app_ref.go(n))
             self.box.add_widget(btn)
@@ -769,6 +800,171 @@ class AboutScreen(BaseScreen):
         self.add_home_button()
 
 
+class TodayScreen(BaseScreen):
+    """What to learn today, and a session that runs it."""
+
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Today", **kwargs)
+        self.session = []
+        self.index = 0
+        self.reviewed = 0
+        self.plan_box = BoxLayout(orientation="vertical", size_hint=(1, None))
+        self.box.add_widget(self.plan_box)
+        self.big = Label(text="", font_size=30, size_hint=(1, 0.12))
+        self.plan_box.add_widget(self.big)
+        self.detail = Label(text="", size_hint=(1, 0.12))
+        self.plan_box.add_widget(self.detail)
+        self.hint = Label(text="", size_hint=(1, 0.1))
+        self.plan_box.add_widget(self.hint)
+        self.start_btn = Button(text="Start today's session", size_hint=(1, 0.11))
+        self.start_btn.bind(on_press=self.start_session)
+        self.plan_box.add_widget(self.start_btn)
+
+        self.card_area = BoxLayout(orientation="vertical", size_hint=(1, None))
+        self.box.add_widget(self.card_area)
+        self.progress = Label(text="", size_hint=(1, 0.08))
+        self.card_area.add_widget(self.progress)
+        self.prompt = Label(text="", font_size=44, size_hint=(1, 0.24))
+        self.card_area.add_widget(self.prompt)
+        self.answer = Label(text="", font_size=20, size_hint=(1, 0.16))
+        self.card_area.add_widget(self.answer)
+        row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=4)
+        self.flip_btn = Button(text="Show answer")
+        self.flip_btn.bind(on_press=self.flip)
+        row.add_widget(self.flip_btn)
+        self.card_area.add_widget(row)
+        rate_row = BoxLayout(orientation="horizontal", size_hint=(1, 0.1), spacing=2)
+        for q in range(6):
+            b = Button(text=str(q))
+            b.bind(on_press=lambda x, qq=q: self.rate(qq))
+            rate_row.add_widget(b)
+        self.card_area.add_widget(rate_row)
+        self.add_home_button()
+        self.show_plan()
+
+    def show_plan(self):
+        p = study.plan(self.app_ref.engine, ROOT, lang=self.app_ref.lang)
+        self.plan_box.opacity = 1
+        self.card_area.opacity = 0
+        self.card_area.disabled = True
+        remaining = max(p["planned"] - p["done_today"], 0)
+        self.big.text = f"{remaining} cards to go today"
+        self.detail.text = (
+            f"Due: {p['due']}    New: {p['new']}    Done today: {p['done_today']}\n"
+            f"Goal {p['goal']} a day   |   {p['decks']} decks selected"
+        )
+        self.hint.text = study.next_level_hint(self.app_ref.engine, ROOT, self.app_ref.lang)
+        if remaining == 0:
+            self.start_btn.text = "Nothing due - review anyway"
+        else:
+            self.start_btn.text = "Start today's session"
+
+    def start_session(self, *a):
+        self.session = study.build_session(self.app_ref.engine, ROOT, lang=self.app_ref.lang)
+        if not self.session:
+            self.status.text = "No cards in the selected decks"
+            return
+        self.index = 0
+        self.reviewed = 0
+        self.plan_box.opacity = 0
+        self.plan_box.disabled = True
+        self.card_area.opacity = 1
+        self.card_area.disabled = False
+        self.next_card()
+
+    def next_card(self):
+        if self.index >= len(self.session):
+            self.status.text = f"Session complete - {self.reviewed} cards"
+            self.show_plan()
+            return
+        card = self.session[self.index]
+        self.progress.text = f"Card {self.index + 1} of {len(self.session)}"
+        self.prompt.text = card["front"]
+        self.answer.text = ""
+        self.flip_btn.disabled = False
+
+    def flip(self, *a):
+        if self.index >= len(self.session):
+            return
+        card = self.session[self.index]
+        self.answer.text = card["back"] + ("\n" + card["hint"] if card.get("hint") else "")
+        self.flip_btn.disabled = True
+
+    def rate(self, q):
+        if self.index >= len(self.session):
+            return
+        card = self.session[self.index]
+        self.app_ref.engine.review(card["id"], q)
+        self.app_ref.progress.record_review(self.app_ref.lang, q >= 3)
+        self.reviewed += 1
+        self.index += 1
+        self.next_card()
+
+
+class SettingsScreen(BaseScreen):
+    """Daily goals, deck selection and theme."""
+
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "Settings", **kwargs)
+        from kivy.uix.scrollview import ScrollView
+
+        inner = BoxLayout(orientation="vertical", size_hint=(1, None), spacing=6)
+        inner.add_widget(Label(text="Daily goal (cards per day)"))
+        self.goal = _spinner([10, 20, 30, 50, 100])
+        inner.add_widget(self.goal)
+        inner.add_widget(Label(text="New cards per day"))
+        self.new_per = _spinner([0, 5, 10, 15, 25, 50])
+        inner.add_widget(self.new_per)
+        inner.add_widget(Label(text="Reviews per day"))
+        self.rev_per = _spinner([20, 50, 100, 200, 400])
+        inner.add_widget(self.rev_per)
+        inner.add_widget(Label(text="Theme"))
+        self.theme = _spinner(["dark", "light"])
+        inner.add_widget(self.theme)
+        inner.add_widget(Label(text="Study decks (none checked = all)"))
+        self.deck_boxes = []
+        for deck in app_ref.engine.list_decks(app_ref.lang):
+            row = BoxLayout(orientation="horizontal", size_hint=(1, 0.06))
+            check = _check(deck.get("name", ""))
+            row.add_widget(check)
+            lbl = Label(text=f"{deck['name']} ({app_ref.engine.cards_count(deck['id'])})")
+            row.add_widget(lbl)
+            inner.add_widget(row)
+            self.deck_boxes.append((deck["name"], check))
+        save_btn = Button(text="Save settings", size_hint=(1, 0.1))
+        save_btn.bind(on_press=self.save)
+        inner.add_widget(save_btn)
+
+        scroll = ScrollView(do_scroll_x=False)
+        scroll.add_widget(inner)
+        self.box.add_widget(scroll)
+        self.add_home_button()
+        self.load_values()
+
+    def load_values(self):
+        s = settings.load(ROOT)
+        self.goal.text = str(s.get("daily_goal", 30))
+        self.new_per.text = str(s.get("new_per_day", 15))
+        self.rev_per.text = str(s.get("review_per_day", 100))
+        self.theme.text = s.get("theme", "dark")
+        active = set(s.get("active_decks") or [])
+        for name, check in self.deck_boxes:
+            check.active = (name in active) if active else True
+
+    def save(self, *a):
+        chosen = [name for name, check in self.deck_boxes if check.active]
+        values = {
+            "daily_goal": int(self.goal.text),
+            "new_per_day": int(self.new_per.text),
+            "review_per_day": int(self.rev_per.text),
+            "theme": self.theme.text,
+            "active_decks": chosen,
+        }
+        settings.save(ROOT, values)
+        self.status.text = "Saved"
+        apply_theme(self.theme.text)
+
+
 class SenseiApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -804,6 +1000,8 @@ class SenseiApp(App):
         self.sm.add_widget(ShadowingScreen(self, name="Shadowing"))
         self.sm.add_widget(ModelScreen(self, name="Model"))
         self.sm.add_widget(AboutScreen(self, name="About"))
+        self.sm.add_widget(TodayScreen(self, name="Today"))
+        self.sm.add_widget(SettingsScreen(self, name="Settings"))
         self.sm.add_widget(ProgressScreen(self, name="Progress"))
         threading.Thread(target=self._import_full_content, daemon=True).start()
         return self.sm

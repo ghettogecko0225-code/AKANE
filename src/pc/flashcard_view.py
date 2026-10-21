@@ -15,6 +15,7 @@ class FlashCardView(QWidget):
         self.session_id = None
         self.reviewed = 0
         self.correct = 0
+        self.session_cards = None
 
         layout = QVBoxLayout(self)
         self.status = QLabel("No deck loaded")
@@ -23,10 +24,17 @@ class FlashCardView(QWidget):
         self.card_frame = QFrame()
         self.card_frame.setFrameShape(QFrame.Shape.Box)
         self.card_frame.setMinimumHeight(200)
+        from core.theme import palette
+        c = palette()
+        self.card_frame.setStyleSheet(
+            f"QFrame {{ background: {c['card']}; border: 1px solid {c['line']};"
+            f" border-radius: 14px; }}"
+        )
         cf = QVBoxLayout(self.card_frame)
+        cf.setContentsMargins(18, 18, 18, 18)
         self.front_label = QLabel("")
         self.front_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.front_label.setStyleSheet("font-size: 48px;")
+        self.front_label.setStyleSheet("font-size: 52px;")
         self.back_label = QLabel("")
         self.back_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.back_label.setStyleSheet("font-size: 24px;")
@@ -64,9 +72,19 @@ class FlashCardView(QWidget):
 
     def load_deck(self, deck_id):
         self.deck_id = deck_id
+        self.session_cards = None
         self.reviewed = 0
         self.correct = 0
         self.session_id = self.progress.start_session("ja", deck_id)
+        self.next_card()
+
+    def start_session(self, cards):
+        """Study a fixed list of cards (the daily plan)."""
+        self.session_cards = list(cards)
+        self.deck_id = None
+        self.reviewed = 0
+        self.correct = 0
+        self.session_id = self.progress.start_session("ja", None)
         self.next_card()
 
     def next_card(self):
@@ -77,6 +95,24 @@ class FlashCardView(QWidget):
         for b in self.q_buttons:
             b.setEnabled(False)
         self.next_btn.setEnabled(False)
+        if self.session_cards is not None:
+            if not self.session_cards:
+                self.current = None
+                self.front_label.setText("Session complete!")
+                self.status.setText(f"Reviewed {self.reviewed} cards")
+                if self.session_id is not None:
+                    self.progress.end_session(self.session_id, self.reviewed, self.correct)
+                    self.session_id = None
+                self.session_cards = None
+                return
+            self.current = self.session_cards.pop(0)
+            self.front_label.setText(self.current["front"])
+            self.back_label.setText(self.current["back"])
+            self.hint_label.setText(self.current.get("hint", "") or "")
+            self.status.setText(
+                f"Card {self.reviewed + 1} of {self.reviewed + len(self.session_cards) + 1}"
+            )
+            return
         due = self.engine.due_cards(self.deck_id, limit=1)
         if not due:
             self.current = None
