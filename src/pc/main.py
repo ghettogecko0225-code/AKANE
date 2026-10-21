@@ -17,6 +17,7 @@ except Exception:
     pass
 
 from PyQt6.QtWidgets import QApplication
+from core.brand import APP_NAME
 from core.paths import resource_root, data_root
 from pc.main_window import MainWindow
 
@@ -35,8 +36,8 @@ def _crash_log(exc_type, exc, tb):
 def main():
     sys.excepthook = _crash_log
     app = QApplication(sys.argv)
-    app.setApplicationName("Japanese Sensei AI")
-    app.setApplicationVersion("0.1.0")
+    app.setApplicationName(APP_NAME)
+    app.setApplicationVersion("1.0.0")
     window = MainWindow(resource_root(), data_root())
     window.show()
     sys.exit(app.exec())

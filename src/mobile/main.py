@@ -31,7 +31,8 @@ from kivy.clock import Clock
 
 try:
     LabelBase.register(
-        name="Roboto", fn_regular=str(ROOT / "assets" / "fonts" / "msgothic.ttc")
+        name="Roboto",
+        fn_regular=str(ROOT / "assets" / "fonts" / "NotoSansCJKjp-Regular.otf"),
     )
 except Exception:
     pass
@@ -247,7 +248,7 @@ class BaseScreen(Screen):
 
 class HomeScreen(BaseScreen):
     def __init__(self, app_ref, **kwargs):
-        super().__init__(app_ref, "Japanese Sensei AI", **kwargs)
+        super().__init__(app_ref, "Benkyo Studio", **kwargs)
         self.deck_items = []
         self.spinner = Spinner(text="Choose deck", values=self.deck_items, size_hint=(1, 0.09))
         self.spinner.bind(text=self.on_deck)
@@ -770,11 +771,12 @@ class AboutScreen(BaseScreen):
 
     def __init__(self, app_ref, **kwargs):
         super().__init__(app_ref, "About & Credits", **kwargs)
-        from core.credits import CREDITS
+        from core.credits import credits_text
+        from core.brand import SOURCE_URL, DATA_LICENSE_URL
         from kivy.uix.scrollview import ScrollView
 
         self.text = Label(
-            text=CREDITS,
+            text=credits_text(SOURCE_URL, DATA_LICENSE_URL),
             size_hint=(1, None),
             halign="left",
             valign="top",
@@ -960,7 +962,7 @@ class SettingsScreen(BaseScreen):
         apply_theme(self.theme.text)
 
 
-class SenseiApp(App):
+class BenkyoApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.root_path = ROOT
@@ -968,7 +970,7 @@ class SenseiApp(App):
         self.session_count = 0
         data_dir = ROOT / "data"
         data_dir.mkdir(parents=True, exist_ok=True)
-        self.conn = connect(str(data_dir / "sensei.db"))
+        self.conn = connect(str(data_dir / "benkyo.db"))
         self.engine = FlashCardEngine(self.conn)
         self.progress = ProgressTracker(self.conn)
         existing = {d["name"] for d in self.engine.list_decks()}
@@ -1029,4 +1031,4 @@ class SenseiApp(App):
 
 
 if __name__ == "__main__":
-    SenseiApp().run()
+    BenkyoApp().run()

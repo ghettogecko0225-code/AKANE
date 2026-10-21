@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from core.db import connect
+from core.brand import APP_NAME
 from core.flashcards import FlashCardEngine
 from core.progress import ProgressTracker
 from core.seed import load_deck_from_json
@@ -32,10 +33,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.root = Path(root)
         self.data_dir = Path(data_dir) if data_dir else self.root
-        self.setWindowTitle("Japanese Sensei AI")
+        self.setWindowTitle(APP_NAME)
         self.resize(900, 600)
 
-        db_path = self.data_dir / "data" / "sensei.db"
+        db_path = self.data_dir / "data" / "benkyo.db"
         self.conn = connect(str(db_path))
         self.engine = FlashCardEngine(self.conn)
         self.progress = ProgressTracker(self.conn)
@@ -217,11 +218,12 @@ class MainWindow(QMainWindow):
 
     def show_credits(self):
         from PyQt6.QtWidgets import QMessageBox
-        from core.credits import CREDITS
+        from core.credits import credits_text
+        from core.brand import SOURCE_URL, DATA_LICENSE_URL
         box = QMessageBox(self)
         box.setWindowTitle("About & Credits")
         box.setTextFormat(Qt.TextFormat.PlainText)
-        box.setText(CREDITS)
+        box.setText(credits_text(SOURCE_URL, DATA_LICENSE_URL))
         box.exec()
 
     def import_content(self, background=False):

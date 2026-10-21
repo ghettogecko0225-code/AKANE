@@ -4,11 +4,11 @@ __pycache__/
 *.pyc
 *.spec
 !buildozer.spec
-!JapaneseSenseiAI.spec
+!BenkyoStudio.spec
 models/
-dist/JapaneseSenseiAI/models/
+dist/BenkyoStudio/models/
 data/
-data/sensei.db
+data/benkyo.db
 data/asr_log.txt
 assets/openjlpt/.git
 sessions/

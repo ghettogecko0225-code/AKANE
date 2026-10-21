@@ -1,11 +1,11 @@
 [app]
-title = Japanese Sensei AI
-package.name = japanesesensei
-package.domain = org.sensei
+title = Benkyo Studio
+package.name = benkyo
+package.domain = com.hivepulse
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,json,yaml,txt,ttc,ogg,onnx
+source.include_exts = py,png,jpg,kv,atlas,json,yaml,txt,otf,ogg,onnx
 source.exclude_dirs = assets/openjlpt,dist,build,models,tests,docs,sessions,data
-version = 0.4.0
+version = 1.0.0
 requirements = python3,kivy,pyjnius,sherpa_onnx,charset_normalizer
 p4a.local_recipes = p4a-recipes
 orientation = portrait
@@ -15,7 +15,7 @@ android.extra_manifest_application_arguments = android/extra_manifest_applicatio
 icon.filename = %(source.dir)s/assets/brand/icon.png
 android.presplash_color = #12141c
 android.presplash_image = %(source.dir)s/assets/brand/splash.png
-android.api = 33
+android.api = 36
 android.minapi = 24
 android.ndk_api = 24
 android.archs = arm64-v8a

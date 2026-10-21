@@ -32,7 +32,7 @@ def data_root():
 
 def models_root():
     """Root for heavyweight model files (piper voices, translation models)."""
-    env = os.environ.get("SENSEI_MODELS")
+    env = os.environ.get("BENKYO_MODELS") or os.environ.get("SENSEI_MODELS")
     if env:
         return Path(env)
     if is_frozen():

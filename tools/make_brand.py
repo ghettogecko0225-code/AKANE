@@ -12,7 +12,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "brand"
-FONT = Path(r"C:\Windows\Fonts\msgothic.ttc")
+FONT = ROOT / "assets" / "fonts" / "NotoSansCJKjp-Regular.otf"
+APP_TITLE = "Benkyo Studio"
 
 BG = (18, 20, 28, 255)
 SUN = (224, 83, 61, 255)
@@ -21,12 +22,10 @@ DIM = (154, 163, 189, 255)
 
 
 def _font(size):
-    for index in (0, 1, 2):
-        try:
-            return ImageFont.truetype(str(FONT), size, index=index)
-        except Exception:
-            continue
-    return ImageFont.load_default()
+    try:
+        return ImageFont.truetype(str(FONT), size)
+    except Exception:
+        return ImageFont.load_default()
 
 
 def make_icon(size=512):
@@ -79,7 +78,7 @@ def make_splash(w=1280, h=1280):
     tw, th = box[2] - box[0], box[3] - box[1]
     d.text((cx - tw / 2 - box[0], cy - th / 2 - box[1]), text, font=f, fill=CREAM)
     f2 = _font(int(min(w, h) * 0.045))
-    sub = "Japanese Sensei AI"
+    sub = APP_TITLE
     box2 = d.textbbox((0, 0), sub, font=f2)
     d.text(
         (cx - (box2[2] - box2[0]) / 2 - box2[0], int(h * 0.62)),
