@@ -86,6 +86,17 @@ def _tts_error():
     return getattr(TTS, "last_error", "") or "audio unavailable"
 
 
+def _ui(fn):
+    """Run a UI update on the Kivy main thread.
+
+    Speech and translation run on background threads; touching widgets
+    from there crashes Kivy.
+    """
+    def wrapped(*args, **kwargs):
+        Clock.schedule_once(lambda dt: fn(*args, **kwargs), 0)
+    return wrapped
+
+
 def _recognize_offline(on_text, on_error, seconds=5.0):
     """Offline Japanese recognition with the bundled sherpa-onnx model."""
     if not asr.is_available(ROOT):
@@ -95,20 +106,20 @@ def _recognize_offline(on_text, on_error, seconds=5.0):
     def done(text, info):
         if text:
             on_text(text)
-            return
-        raw_peak = info.get("raw_peak", 0)
-        if not info.get("bytes"):
-            on_error("microphone captured nothing - check the headset mic")
-        elif raw_peak < 30:
-            on_error(
-                "microphone is silent - plug in the headset or speak into the phone"
-            )
-        elif raw_peak < 600:
-            on_error("microphone is very quiet - speak closer or louder")
         else:
-            on_error(
-                "heard audio but no Japanese - say the sentence in Japanese"
-            )
+            raw_peak = info.get("raw_peak", 0)
+            if not info.get("bytes"):
+                on_error("microphone captured nothing - check the headset mic")
+            elif raw_peak < 30:
+                on_error(
+                    "microphone is silent - plug in the headset or speak into the phone"
+                )
+            elif raw_peak < 600:
+                on_error("microphone is very quiet - speak closer or louder")
+            else:
+                on_error(
+                    "heard audio but no Japanese - say the sentence in Japanese"
+                )
 
     asr.listen(ROOT, seconds, done)
     return True
@@ -134,7 +145,7 @@ def _recognize_device(on_text, on_error):
 
     try:
         stt = android_speech.AndroidSTT("ja", fallbacks=("ja-JP", "en-US"))
-        stt.listen(on_result, on_error_code)
+        stt.listen(_ui(on_result), _ui(on_error_code))
         return True
     except Exception as e:
         on_error(f"listen error: {e}")
@@ -302,7 +313,7 @@ class VoiceScreen(BaseScreen):
             self.status.text = f"Audio error: {_tts_error()}"
 
     def listen(self, *a):
-        self.status.text = "Listening (offline Japanese model)..."
+        self.status.text = "Listening..."
 
         def on_text(text):
             self.heard.text = f"You said: {text}"
@@ -312,7 +323,7 @@ class VoiceScreen(BaseScreen):
         def on_error(msg):
             self.status.text = msg
 
-        _start_listening(on_text, on_error)
+        _start_listening(_ui(on_text), _ui(on_error))
 
 
 class TranslateScreen(BaseScreen):
@@ -347,10 +358,21 @@ class TranslateScreen(BaseScreen):
         def worker():
             try:
                 out = translate(text, direction)
+            except Exception as e:
+                msg = str(e) or type(e).__name__
+
+                def show_error(dt):
+                    self.output.text = ""
+                    self.status.text = msg[:80]
+
+                Clock.schedule_once(show_error, 0)
+                return
+
+            def show_result(dt):
                 self.output.text = out
                 self.status.text = "Done"
-            except Exception as e:
-                self.status.text = f"Error: {e}"
+
+            Clock.schedule_once(show_result, 0)
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -569,7 +591,7 @@ class SpeakingScreen(BaseScreen):
         def on_error(msg):
             self.status.text = msg
 
-        _start_listening(on_text, on_error)
+        _start_listening(_ui(on_text), _ui(on_error))
 
 
 class NewsScreen(BaseScreen):

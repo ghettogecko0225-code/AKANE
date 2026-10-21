@@ -1,5 +1,6 @@
 import json
 import pathlib
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -74,8 +75,15 @@ def _translate_online(text, direction):
         "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto"
         f"&tl={target}&dt=t&q={q}"
     )
-    with urllib.request.urlopen(url, timeout=15, context=_ssl_context()) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(url, timeout=15, context=_ssl_context()) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            raise RuntimeError("translator is busy right now, try again in a minute")
+        raise RuntimeError(f"translator error ({exc.code})")
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"no internet connection ({exc.reason})")
     return "".join(part[0] for part in data[0] if part and part[0])
 
 
