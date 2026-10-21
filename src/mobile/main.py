@@ -172,7 +172,7 @@ class HomeScreen(BaseScreen):
         self.box.add_widget(self.spinner)
         for name in ["Flashcards", "Voice", "Translate", "Workbook", "Reading",
                      "Listening", "Speaking", "News", "Shadowing", "Model",
-                     "Progress"]:
+                     "Progress", "About"]:
             btn = Button(text=name, size_hint=(1, 0.075))
             btn.bind(on_press=lambda x, n=name: self.app_ref.go(n))
             self.box.add_widget(btn)
@@ -722,6 +722,31 @@ class ModelScreen(BaseScreen):
         self.status.text = "Everything runs on this device - no internet needed."
 
 
+class AboutScreen(BaseScreen):
+    """Credits and licences - required because the app ships CC BY-SA data."""
+
+    def __init__(self, app_ref, **kwargs):
+        super().__init__(app_ref, "About & Credits", **kwargs)
+        from core.credits import CREDITS
+        from kivy.uix.scrollview import ScrollView
+
+        self.text = Label(
+            text=CREDITS,
+            size_hint=(1, None),
+            halign="left",
+            valign="top",
+            markup=False,
+        )
+        self.text.bind(
+            width=lambda inst, val: setattr(inst, "text_size", (val, None)),
+            height=lambda inst, val: setattr(inst, "height", max(val, 1)),
+        )
+        scroll = ScrollView(do_scroll_x=False)
+        scroll.add_widget(self.text)
+        self.box.add_widget(scroll)
+        self.add_home_button()
+
+
 class SenseiApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -756,6 +781,7 @@ class SenseiApp(App):
         self.sm.add_widget(NewsScreen(self, name="News"))
         self.sm.add_widget(ShadowingScreen(self, name="Shadowing"))
         self.sm.add_widget(ModelScreen(self, name="Model"))
+        self.sm.add_widget(AboutScreen(self, name="About"))
         self.sm.add_widget(ProgressScreen(self, name="Progress"))
         threading.Thread(target=self._import_full_content, daemon=True).start()
         return self.sm

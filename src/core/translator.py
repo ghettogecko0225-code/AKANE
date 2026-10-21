@@ -52,6 +52,21 @@ def _translate_local(text, direction):
     return sp_tgt.decode(res[0].hypotheses[0])
 
 
+def _ssl_context():
+    """SSL context with a real CA bundle.
+
+    Android's Python has no system CA store, so HTTPS fails with
+    "certificate verify failed" unless we point it at certifi's bundle.
+    """
+    import ssl
+    try:
+        import certifi
+        path = certifi.where()
+        return ssl.create_default_context(cafile=path)
+    except Exception:
+        return ssl.create_default_context()
+
+
 def _translate_online(text, direction):
     target = "en" if direction == "ja-en" else "ja"
     q = urllib.parse.quote(text)
@@ -59,7 +74,7 @@ def _translate_online(text, direction):
         "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto"
         f"&tl={target}&dt=t&q={q}"
     )
-    with urllib.request.urlopen(url, timeout=15) as resp:
+    with urllib.request.urlopen(url, timeout=15, context=_ssl_context()) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     return "".join(part[0] for part in data[0] if part and part[0])
 

@@ -69,6 +69,10 @@ class MainWindow(QMainWindow):
         self.import_btn.clicked.connect(self.import_content)
         sidebar.addWidget(self.import_btn)
 
+        about_btn = QPushButton("About & Credits")
+        about_btn.clicked.connect(self.show_credits)
+        sidebar.addWidget(about_btn)
+
         self.stats_label = QLabel("")
         sidebar.addWidget(self.stats_label)
         layout.addLayout(sidebar, 1)
@@ -137,6 +141,15 @@ class MainWindow(QMainWindow):
         streak = self.progress.streak(lang)
         total = self.progress.total_cards(lang)
         self.stats_label.setText(f"Streak: {streak} days\nCards reviewed: {total}")
+
+    def show_credits(self):
+        from PyQt6.QtWidgets import QMessageBox
+        from core.credits import CREDITS
+        box = QMessageBox(self)
+        box.setWindowTitle("About & Credits")
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setText(CREDITS)
+        box.exec()
 
     def import_content(self, background=False):
         data_dir = self.root / "assets" / "openjlpt" / "data" / "json"
