@@ -8,6 +8,7 @@ a = Analysis(
     datas=[
         ('config.yaml', '.'),
         ('lang', 'lang'),
+        ('assets/jlpt', 'assets/jlpt'),
         ('assets/immersion', 'assets/immersion'),
         ('assets/fonts', 'assets/fonts'),
         ('assets/audio', 'assets/audio'),

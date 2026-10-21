@@ -124,8 +124,10 @@ class MainWindow(QMainWindow):
             app.setStyleSheet(qt_stylesheet(load_settings(str(self.root)).get("theme", "dark")))
         self.refresh_decks()
 
-        data_dir = self.root / "assets" / "openjlpt" / "data" / "json"
-        if data_dir.exists() and "Vocab N5" not in {d["name"] for d in self.engine.list_decks()}:
+        has_content = (self.root / "assets" / "jlpt").exists() or (
+            self.root / "assets" / "openjlpt" / "data" / "json"
+        ).exists()
+        if has_content and "Vocab N5" not in {d["name"] for d in self.engine.list_decks()}:
             self.import_content(background=True)
 
     def _load_hives(self):
@@ -227,9 +229,14 @@ class MainWindow(QMainWindow):
         box.exec()
 
     def import_content(self, background=False):
-        data_dir = self.root / "assets" / "openjlpt" / "data" / "json"
+        # assets/jlpt is the packaged copy and is what ships in the exe and
+        # the APK; assets/openjlpt is the upstream repo used when running
+        # from source.
+        data_dir = self.root / "assets" / "jlpt"
         if not data_dir.exists():
-            self.stats_label.setText("OpenJLPT data not found")
+            data_dir = self.root / "assets" / "openjlpt" / "data" / "json"
+        if not data_dir.exists():
+            self.stats_label.setText("JLPT data not found")
             return
 
         def worker():
