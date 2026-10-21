@@ -68,23 +68,60 @@ def _ssl_context():
         return ssl.create_default_context()
 
 
-def _translate_online(text, direction):
-    target = "en" if direction == "ja-en" else "ja"
+def _google_request(text, target, host):
     q = urllib.parse.quote(text)
     url = (
-        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto"
+        f"https://{host}/translate_a/single?client=gtx&sl=auto"
         f"&tl={target}&dt=t&q={q}"
     )
-    try:
-        with urllib.request.urlopen(url, timeout=15, context=_ssl_context()) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        if exc.code == 429:
-            raise RuntimeError("translator is busy right now, try again in a minute")
-        raise RuntimeError(f"translator error ({exc.code})")
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"no internet connection ({exc.reason})")
+    with urllib.request.urlopen(url, timeout=15, context=_ssl_context()) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    if not data or not data[0]:
+        raise RuntimeError("translator returned nothing")
     return "".join(part[0] for part in data[0] if part and part[0])
+
+
+def _mymemory_request(text, target):
+    source = "ja" if target == "en" else "en"
+    q = urllib.parse.quote(text)
+    url = (
+        f"https://api.mymemory.translated.net/get?q={q}&langpair={source}|{target}"
+    )
+    with urllib.request.urlopen(url, timeout=15, context=_ssl_context()) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    if data.get("responseStatus") != 200:
+        raise RuntimeError("translator rejected the request")
+    translated = (data.get("responseData") or {}).get("translatedText")
+    if not translated:
+        raise RuntimeError("translator returned nothing")
+    return translated
+
+
+PROVIDERS = (
+    ("google", lambda text, target: _google_request(text, target, "translate.googleapis.com")),
+    ("google-alt", lambda text, target: _google_request(text, target, "translate.google.com")),
+    ("mymemory", _mymemory_request),
+)
+
+
+def _translate_online(text, direction):
+    target = "en" if direction == "ja-en" else "ja"
+    last_error = None
+    for name, provider in PROVIDERS:
+        try:
+            return provider(text, target)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                last_error = "translator is busy right now, try again in a minute"
+            else:
+                last_error = f"translator error ({exc.code})"
+        except urllib.error.URLError as exc:
+            last_error = f"no internet connection ({exc.reason})"
+        except RuntimeError as exc:
+            last_error = str(exc)
+        except Exception as exc:
+            last_error = f"{type(exc).__name__}: {exc}"
+    raise RuntimeError(last_error or "translation failed")
 
 
 def translate(text, direction=None):
