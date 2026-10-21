@@ -41,7 +41,6 @@ from core.flashcards import FlashCardEngine
 from core.progress import ProgressTracker
 from core.seed import load_deck_from_json
 from core.import_openjlpt import import_all as import_openjlpt_all
-from core.translator import translate
 from core.immersion import load_passages, listening_items
 from core.speaking import score_pronunciation, build_reading_map
 from core.workbook import WorkbookEngine
@@ -253,7 +252,7 @@ class HomeScreen(BaseScreen):
         self.spinner = Spinner(text="Choose deck", values=self.deck_items, size_hint=(1, 0.09))
         self.spinner.bind(text=self.on_deck)
         self.box.add_widget(self.spinner)
-        for name in ["Today", "Flashcards", "Voice", "Translate", "Workbook", "Reading",
+        for name in ["Today", "Flashcards", "Voice", "Workbook", "Reading",
                      "Listening", "Speaking", "News", "Shadowing", "Model",
                      "Progress", "Settings", "About"]:
             btn = Button(text=name, size_hint=(1, 0.075))
@@ -397,57 +396,6 @@ class VoiceScreen(BaseScreen):
             self.status.text = msg
 
         _start_listening(_ui(on_text), _ui(on_error))
-
-
-class TranslateScreen(BaseScreen):
-    def __init__(self, app_ref, **kwargs):
-        super().__init__(app_ref, "Translator", **kwargs)
-        self.input = TextInput(size_hint=(1, 0.28), multiline=True)
-        self.box.add_widget(self.input)
-        self.spinner = Spinner(text="Auto", values=["Auto", "Japanese -> English", "English -> Japanese"])
-        self.spinner.size_hint = (1, 0.09)
-        self.box.add_widget(self.spinner)
-        btn = Button(text="Translate", size_hint=(1, 0.1))
-        btn.bind(on_press=self.do_translate)
-        self.box.add_widget(btn)
-        self.output = TextInput(size_hint=(1, 0.28), multiline=True, readonly=True)
-        self.box.add_widget(self.output)
-        self.status = Label(text="", size_hint=(1, 0.08))
-        self.box.add_widget(self.status)
-        self.add_home_button()
-
-    def do_translate(self, *a):
-        text = self.input.text.strip()
-        if not text:
-            return
-        choice = self.spinner.text
-        direction = None
-        if choice.startswith("Japanese"):
-            direction = "ja-en"
-        elif choice.startswith("English"):
-            direction = "en-ja"
-        self.status.text = "Translating..."
-
-        def worker():
-            try:
-                out = translate(text, direction)
-            except Exception as e:
-                msg = str(e) or type(e).__name__
-
-                def show_error(dt):
-                    self.output.text = ""
-                    self.status.text = msg[:80]
-
-                Clock.schedule_once(show_error, 0)
-                return
-
-            def show_result(dt):
-                self.output.text = out
-                self.status.text = "Done"
-
-            Clock.schedule_once(show_result, 0)
-
-        threading.Thread(target=worker, daemon=True).start()
 
 
 class WorkbookScreen(BaseScreen):
@@ -1038,7 +986,6 @@ class SenseiApp(App):
         self.sm.add_widget(HomeScreen(self, name="Home"))
         self.sm.add_widget(FlashcardScreen(self, name="Flashcards"))
         self.sm.add_widget(VoiceScreen(self, name="Voice"))
-        self.sm.add_widget(TranslateScreen(self, name="Translate"))
         self.sm.add_widget(WorkbookScreen(self, name="Workbook"))
         self.sm.add_widget(ReadingScreen(self, name="Reading"))
         self.sm.add_widget(ListeningScreen(self, name="Listening"))

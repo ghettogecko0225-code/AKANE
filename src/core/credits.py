@@ -19,15 +19,15 @@ Speech
 - Android system TextToSpeech for phone playback
 
 Translation
-- OPUS-MT (Helsinki-NLP), CC BY 4.0 (desktop build)
-- Google Translate public endpoint (phone build, needs internet)
+- OPUS-MT (Helsinki-NLP), CC BY 4.0
+- Runs on this device with the bundled models. No network, no account.
 
 Fonts
 - MS Gothic (msgothic.ttc), Microsoft
 - Japanese text is shown with this font so characters render on any device.
 
 Offline
-Everything except translation works with no internet connection.
-
-Thank you for using this app.
+This app has NO internet permission. Everything - every card, every audio
+clip, speech recognition and translation - runs on this device. Nothing you
+say, type or study is ever sent anywhere.
 """

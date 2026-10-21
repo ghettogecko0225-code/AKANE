@@ -1,10 +1,10 @@
-import json
-import pathlib
-import urllib.error
-import urllib.parse
-import urllib.request
+"""Offline Japanese <-> English translation.
 
-from core.paths import models_root
+Uses the bundled OPUS-MT models through ctranslate2: no network, no API
+key, no account. If the models are not installed the translator says so
+instead of quietly reaching for the internet.
+"""
+import pathlib
 
 try:
     import ctranslate2
@@ -12,6 +12,8 @@ try:
     _HAS_CT2 = True
 except Exception:
     _HAS_CT2 = False
+
+from core.paths import models_root
 
 TRANS_DIR = models_root() / "translation"
 
@@ -46,93 +48,17 @@ def _is_japanese(text):
     return False
 
 
-def _translate_local(text, direction):
-    tr, sp_src, sp_tgt = _load(direction)
-    toks = sp_src.encode(text, out_type=str) + ["</s>"]
-    res = tr.translate_batch([toks])
-    return sp_tgt.decode(res[0].hypotheses[0])
-
-
-def _ssl_context():
-    """SSL context with a real CA bundle.
-
-    Android's Python has no system CA store, so HTTPS fails with
-    "certificate verify failed" unless we point it at certifi's bundle.
-    """
-    import ssl
-    try:
-        import certifi
-        path = certifi.where()
-        return ssl.create_default_context(cafile=path)
-    except Exception:
-        return ssl.create_default_context()
-
-
-def _google_request(text, target, host):
-    q = urllib.parse.quote(text)
-    url = (
-        f"https://{host}/translate_a/single?client=gtx&sl=auto"
-        f"&tl={target}&dt=t&q={q}"
-    )
-    with urllib.request.urlopen(url, timeout=15, context=_ssl_context()) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    if not data or not data[0]:
-        raise RuntimeError("translator returned nothing")
-    return "".join(part[0] for part in data[0] if part and part[0])
-
-
-def _mymemory_request(text, target):
-    source = "ja" if target == "en" else "en"
-    q = urllib.parse.quote(text)
-    url = (
-        f"https://api.mymemory.translated.net/get?q={q}&langpair={source}|{target}"
-    )
-    with urllib.request.urlopen(url, timeout=15, context=_ssl_context()) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    if data.get("responseStatus") != 200:
-        raise RuntimeError("translator rejected the request")
-    translated = (data.get("responseData") or {}).get("translatedText")
-    if not translated:
-        raise RuntimeError("translator returned nothing")
-    return translated
-
-
-PROVIDERS = (
-    ("google", lambda text, target: _google_request(text, target, "translate.googleapis.com")),
-    ("google-alt", lambda text, target: _google_request(text, target, "translate.google.com")),
-    ("mymemory", _mymemory_request),
-)
-
-
-def _translate_online(text, direction):
-    target = "en" if direction == "ja-en" else "ja"
-    last_error = None
-    for name, provider in PROVIDERS:
-        try:
-            return provider(text, target)
-        except urllib.error.HTTPError as exc:
-            if exc.code == 429:
-                last_error = "translator is busy right now, try again in a minute"
-            else:
-                last_error = f"translator error ({exc.code})"
-        except urllib.error.URLError as exc:
-            last_error = f"no internet connection ({exc.reason})"
-        except RuntimeError as exc:
-            last_error = str(exc)
-        except Exception as exc:
-            last_error = f"{type(exc).__name__}: {exc}"
-    raise RuntimeError(last_error or "translation failed")
-
-
 def translate(text, direction=None):
     text = (text or "").strip()
     if not text:
         return ""
     if direction is None:
         direction = "ja-en" if _is_japanese(text) else "en-ja"
-    if _HAS_CT2 and has_local_models():
-        try:
-            return _translate_local(text, direction)
-        except Exception:
-            pass
-    return _translate_online(text, direction)
+    if not has_local_models():
+        raise RuntimeError(
+            "offline translation models are not installed on this device"
+        )
+    tr, sp_src, sp_tgt = _load(direction)
+    toks = sp_src.encode(text, out_type=str) + ["</s>"]
+    res = tr.translate_batch([toks])
+    return sp_tgt.decode(res[0].hypotheses[0])

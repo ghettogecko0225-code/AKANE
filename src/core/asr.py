@@ -12,7 +12,6 @@ Audio capture on Android uses android.media.AudioRecord through pyjnius
 """
 import json
 import threading
-import urllib.request
 from pathlib import Path
 
 SAMPLE_RATE = 16000
