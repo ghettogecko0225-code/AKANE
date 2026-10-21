@@ -14,3 +14,5 @@ assets/openjlpt/.git
 sessions/
 *.zip
 opencode-desktop.log
+build_desktop.log
+build_desktop.err.log
