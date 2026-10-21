@@ -124,9 +124,9 @@ The app was renamed to **Benkyo Studio** (勉強 = "study").
 
 - Checked on Google Play in the **US** and **JP** locales: no exact name match.
 - Checked on the Apple App Store: no exact name match.
-- The domain `benkyostudio.app` was not registered by anyone else in the search
-  that was run; **buy it before launch** so the privacy-policy email address
-  works and so the name cannot be squatted.
+- The domain `benkyostudio.app` was **not registered** when checked on 21 October
+  2026 (no NS or A records, RDAP returns not-found). **Buy it before launch**
+  so the privacy-policy email address works and so the name cannot be squatted.
 
 Also checked, so they are not surprised: there is an unrelated iOS app called
 `Benkyo: Speak & Learn Japanese`. That is a different store and a different
