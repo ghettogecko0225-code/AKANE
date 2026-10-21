@@ -1,95 +1,152 @@
-# Japanese Sensei AI – Architecture Overview
+# Benkyo Studio - Architecture Overview
 
-## Goal
-Create a cross‑platform language‑learning suite that runs **locally** on a PC (Windows/macOS/Linux) and on Android (Galaxy A15 or newer). The app will provide:
-- Flash‑card system (Hiragana/Katakana, vocab, kanji)
-- Interactive work‑books & writing exercises (stroke order, handwriting recognition)
-- Conversational speaking practice with speech‑to‑text & text‑to‑speech
-- Real‑time translation engine (local LLM + NMT)
-- Progress tracking & daily schedule (10 min – 1 h)
-- Modular design so future language hives can be added.
+How the app is actually put together, as of the 1.0.0 release (21 October 2026).
 
-## High‑level Architecture
+This replaces the original planning document, which described Vosk, Coqui-TTS and
+a `build_android.sh` that the finished app does not use.
+
+## What it is
+
+One application in two front ends over one shared core:
+
+| Front end | Stack | Package |
+|---|---|---|
+| Android phone | Kivy 2.3.1 | `com.hivepulse.benkyo` |
+| Windows desktop | PyQt6 6.11 | `BenkyoStudio.exe` |
+
+Both read the same `src/core/` logic and the same bundled content, so a card
+studied on the phone behaves the same on the desktop.
+
+**Everything runs on the device.** The phone build holds no `INTERNET`
+permission, so it cannot phone home even by accident.
+
+## Layout
+
 ```
-Japanese Sensei AI (project root)
+Benkyo Studio (project root)
 │
-├─ src/                         # Source code
-│   ├─ pc/                     # Desktop (PyQt6) entry point
-│   │   ├─ main.py            # Qt app bootstrap
-│   │   └─ ...                # UI widgets, controllers
-│   ├─ mobile/                 # Android (Kivy/Qt for Android) entry point
-│   │   ├─ main.py            # Kivy app bootstrap
-│   │   └─ ...                # Mobile‑specific UI
-│   ├─ core/                  # Shared logic (model loading, scheduler, utils)
-│   │   ├─ models/            # Wrapper for local LLM/NMT models
-│   │   ├─ flashcards.py      # Flash‑card engine
-│   │   ├─ workbook.py        # Exercise generation & evaluation
-│   │   ├─ translator.py      # Translation pipeline
-│   │   ├─ speech.py          # STT/TTS using Vosk + Coqui TTS
-│   │   └─ progress.py        # User progress DB (SQLite)
-│   └─ assets/                # Static data (images, audio samples)
+├─ main.py                     # phone entry point -> mobile.main.BenkyoApp
 │
-├─ assets/                     # Model files, icons, fonts
-│   ├─ models/                 # Local LLM (e.g., Phi‑3 Mini) & NMT (MarianMT)
-│   └─ icons/                  # App icons for desktop & Android
+├─ src/
+│   ├─ core/                   # shared logic, no UI imports
+│   │   ├─ brand.py            # app name, package id, public links (single source)
+│   │   ├─ db.py               # SQLite connection + schema
+│   │   ├─ flashcards.py       # SM-2 spaced repetition engine
+│   │   ├─ scheduler.py        # daily plan: due / new / reviews
+│   │   ├─ study.py            # plan building
+│   │   ├─ settings.py         # settings.json (goals, theme, deck)
+│   │   ├─ theme.py            # shared palette + rgba() for Kivy
+│   │   ├─ asr.py              # sherpa-onnx speech recognition
+│   │   ├─ android_speech.py   # Android TTS / recogniser via pyjnius
+│   │   ├─ voice.py            # desktop TTS (piper) + audio pack fallback
+│   │   ├─ audio_pack.py       # plays the 2,329 pre-rendered OGG clips
+│   │   ├─ translator.py       # local ctranslate2 translation (desktop only)
+│   │   ├─ speaking.py         # pronunciation scoring, kanji-aware readings
+│   │   ├─ immersion.py        # reading / listening / news / shadowing content
+│   │   ├─ workbook.py         # text drills with scoring
+│   │   ├─ progress.py         # progress tracker
+│   │   ├─ seed.py             # deck loader
+│   │   ├─ import_openjlpt.py  # imports assets/jlpt on first run
+│   │   ├─ paths.py            # resource / data / model roots
+│   │   ├─ credits.py          # About & Licenses text
+│   │   └─ ...
+│   ├─ pc/                     # desktop UI (PyQt6)
+│   │   ├─ main.py             # QApplication bootstrap
+│   │   ├─ main_window.py      # sidebar + tabs + Today + Settings + About
+│   │   └─ *_panel.py          # one panel per feature
+│   └─ mobile/                 # phone UI (Kivy)
+│       └─ main.py             # all 13 screens
 │
-├─ docs/                       # Documentation
-│   ├─ architecture.md        # Detailed diagram (included below)
-│   └─ user_guide.md          # How to use the app
+├─ assets/
+│   ├─ jlpt/                   # 10,832 cards, CC BY-SA 4.0 (OpenJLPT)
+│   ├─ audio/                  # 2,329 OGG clips + manifest.json
+│   ├─ asr_sherpa/             # 70 MB int8 ReazonSpeech zipformer model
+│   ├─ fonts/                  # Noto Sans CJK JP (OFL) + OFL.txt
+│   ├─ immersion/              # passages, dialogues, articles
+│   └─ brand/                  # icon, splash, Play feature graphic
 │
-├─ requirements.txt            # Python deps (PyQt6, transformers, sentencepiece, ...)
-├─ build_android.sh            # Script that uses Buildozer / p4a to package Kivy app
-└─ README.md (this file)
+├─ docs/
+│   ├─ licensing-decision.md   # what we ship under what terms, and why
+│   ├─ playstore/              # listing copy, privacy policy, data safety
+│   └─ README.md               # this file
+│
+├─ buildozer.spec              # Android build (package id, API level, assets)
+├─ BenkyoStudio.spec           # PyInstaller build for Windows
+├─ p4a-recipes/                # local recipes for sherpa-onnx + charset_normalizer
+├─ tools/                      # make_brand.py, make_feature_graphic.py, audio pack
+├─ THIRD-PARTY-NOTICES.md      # every bundled licence
+└─ LICENSE                     # GPL-3.0
 ```
 
-## Core Components
-| Component | Responsibility | Key Libraries |
-|-----------|----------------|---------------|
-| **UI Layer** | Platform‑specific front‑end (Qt for PC, Kivy for Android). Handles navigation, theming, and input events. | PyQt6, Kivy, QtQuick (optional) |
-| **Model Manager** | Loads/initialises local LLM (for conversational AI) and NMT model (for translation). Provides inference APIs. | 🤗 Transformers, sentence‑piece, torch/ggml compiled binaries |
-| **Flash‑Card Engine** | Spaced‑repetition scheduler (SM‑2), card CRUD, audio playback. | SQLite, pandas |
-| **Workbook Engine** | Generates reading/writing drills, validates handwriting via **handwritten‑character recognition** (HCR) using a tiny CNN. | OpenCV, TensorFlow Lite (or ONNX Runtime) |
-| **Speech Module** | Offline speech‑to‑text (Japanese) and text‑to‑speech for pronunciation feedback. | Vosk, Coqui‑TTS |
-| **Progress Tracker** | Stores daily study time, mastery levels, streaks. Syncs locally across PC & phone via exported JSON. | SQLite + simple JSON export |
-| **Scheduler** | Pushes notifications on Android & system tray alerts on PC to remind the user to study (10 min‑1 h). | plyer (cross‑platform notifications) |
+## The core is UI-free
 
-## Data Flow Example (Flash‑Card Session)
-1. UI (PC or Mobile) requests next due card → **FlashCardEngine** queries SQLite for SM‑2 due date.
-2. Card data (prompt, audio, image) sent back to UI.
-3. User marks **Correct / Wrong** → engine updates SM‑2 interval and stores result.
-4. **ProgressTracker** updates daily stats; if session length > 10 min, a “session complete” toast appears.
+`src/core/` never imports PyQt6 or Kivy. Both front ends import it, which is why
+the same scheduler, scorer and card engine run on both platforms. Anything
+platform-specific lives behind a thin wrapper (`android_speech.py` for pyjnius,
+`voice.py` for the desktop).
 
-## Translation Pipeline
+## Data flow: a flashcard session
+
+1. The UI asks `FlashCardEngine` for the next card due.
+2. `FlashCardEngine` queries SQLite for the SM-2 due date and pulls the card
+   from `assets/jlpt`.
+3. The card is rendered; audio plays from the pre-rendered pack if a clip
+   exists, otherwise the on-device voice is synthesised.
+4. The user rates it; the SM-2 interval is updated and written back.
+5. `ProgressTracker` updates the daily stats and the 30-day chart.
+
+## Voice, end to end
+
 ```
-User input → Speech (optional) → STT (Vosk) → Text →
-   ├─ Pre‑process (tokenize) →
-   ├─ NMT Model (MarianMT‑ja‑en) →
-   └─ TTS (Coqui) → Audio playback
+ speak (phone)                        speak (desktop)
+      │                                     │
+ core/asr.py                           core/voice.py
+ sherpa-onnx int8                      piper (MIT voice model)
+ ReazonSpeech zipformer                  + pre-rendered pack
+      │                                     │
+ audio in memory -> text -> score      text -> wav -> playback
+ (never written to disk, never sent)   (never sent anywhere)
 ```
-All models are stored under `assets/models/` and loaded with **torch‑script** or **ggml** for minimal RAM usage (~1‑2 GB).
 
-## Build Strategy
-| Target | Tech Stack | Packaging |
-|--------|------------|-----------|
-| **Desktop (Windows/macOS/Linux)** | Python 3.11, PyQt6, bundled torch/transformers binaries | Use **PyInstaller** to create a single‑folder exe (or .app/.appimage). |
-| **Android** | Python 3.11, Kivy, Buildozer (p4a) | `build_android.sh` creates an APK that includes the model files (compressed, extracted on first run). |
+The microphone is captured with `android.media.AudioRecord` through pyjnius
+because `sounddevice` has no Android support. The phone's own recogniser has no
+Japanese model installed, so the bundled sherpa model is the real engine.
 
-### Steps
-1. Write pure‑Python core in `src/core/` – no UI dependencies.
-2. Create thin wrappers in `src/pc/` and `src/mobile/` that import the core.
-3. For Android, convert heavy models to **ggml** or **ONNX** to avoid the large torch dependency.
-4. Test on a PC first, then run `build_android.sh` to generate the APK.
+## Content pipeline
 
-## Future‑Proofing (Language Hive Expansion)
-- The **core** package is language‑agnostic; a `lang/ja/` folder contains Japanese resources, while `lang/es/` could be added later.
-- UI reads a config `config.yaml` that lists available hives. Adding a new hive only requires new vocab/kanji sets and optional model files.
+```
+OpenJLPT (CC BY-SA 4.0)
+   └─ assets/jlpt/*.json  ──import_openjlpt──>  SQLite  ──> 18 decks
+                                                            10,832 cards
+```
 
----
-### Next Steps for You
-1. **Clone the repo** (or copy the folder) onto your dev machine.
-2. Install dependencies: `pip install -r requirements.txt`.
-3. Run the desktop prototype: `python src/pc/main.py`.
-4. When the core is stable, start the Android build: `./build_android.sh`.
-5. Iterate on flash‑card content and model quantisation to keep the app under 2 GB.
+`assets/openjlpt/` holds the upstream project with its `LICENSE` and
+`NOTICE.md`, so the attribution travels with the data.
 
-Feel free to ask for any of the individual modules (e.g., a starter `flashcards.py` implementation) or the Buildozer spec file.
+## Build
+
+| Target | Command | Output |
+|---|---|---|
+| Windows | `pyinstaller BenkyoStudio.spec` | `dist/BenkyoStudio/BenkyoStudio.exe` |
+| Android | `buildozer android debug` (or push to GitHub Actions) | `bin/*.apk` |
+
+The Android build is done on GitHub Actions (`ubuntu-22.04`, Java 17, Python
+3.11) and the APK is signed with the stable key in `.keystore/` so updates
+install over the top without wiping study data.
+
+Two local p4a recipes are required and are not optional:
+
+- `p4a-recipes/sherpa_onnx` - fetches the prebuilt **Android** wheels by hand,
+  because pip on the build host will not install wheels tagged `android_*`.
+- `p4a-recipes/charset_normalizer` - same problem, pure-python wheel.
+
+Requirements in `buildozer.spec` must use **underscores** (`sherpa_onnx`,
+`charset_normalizer`), because p4a compares distribution names that way.
+
+## Testing
+
+- `pytest tests/` - 9 tests over the card engine, scheduler, scoring and import.
+- A Kivy screen-interaction script drives all 13 phone screens headlessly.
+- The Android build is verified on a physical device (Galaxy A15, `R5CXA4GM9JK`)
+  including the microphone path, because that is the only way to catch the
+  pyjnius and AudioRecord quirks.

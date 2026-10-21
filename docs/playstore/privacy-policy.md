@@ -1,4 +1,4 @@
-# Privacy Policy - Benkyo Studio
+﻿# Privacy Policy - Benkyo Studio
 
 **Last updated: 21 October 2026**
 
@@ -16,7 +16,7 @@ source study app for the Japanese language.
 
 - App name: Benkyo Studio
 - Android package id: `com.hivepulse.benkyo`
-- Source code: <https://github.com/ghettogecko0225-code/Japanese-Sensei-AI>
+- Source code: <https://github.com/ghettogecko0225-code/Benkyo-Studio>
 
 ## 2. Data we collect
 
@@ -69,8 +69,8 @@ The app asks for the microphone only when you tap a button that records audio
 
 - **Uninstalling the app deletes everything**, including your study history and
   settings, because all of it lives in the app's private storage.
-- To clear it without uninstalling: Android **Settings → Apps → Benkyo Studio →
-  Storage → Clear data**.
+- To clear it without uninstalling: Android **Settings â†’ Apps â†’ Benkyo Studio â†’
+  Storage â†’ Clear data**.
 
 ## 6. Children
 
@@ -92,7 +92,7 @@ Full details are inside the app under **About & Licenses**.
   **Apache 2.0**.
 - Japanese font Noto Sans CJK JP - **SIL Open Font License 1.1**.
 - The application itself is open source under the **GNU General Public License
-  v3.0**. Source: <https://github.com/ghettogecko0225-code/Japanese-Sensei-AI>
+  v3.0**. Source: <https://github.com/ghettogecko0225-code/Benkyo-Studio>
 
 "Japanese Language Proficiency Test" and "JLPT" are trademarks of the Japan
 Foundation. This app is an unofficial study tool and is not affiliated with or

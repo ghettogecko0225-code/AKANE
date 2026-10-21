@@ -95,7 +95,7 @@ Benkyo means "study" in Japanese. 勉強.
 | Asset | Requirement | Status |
 |---|---|---|
 | App icon | 512 x 512 PNG, 32-bit | `assets/brand/icon.png` - done |
-| Feature graphic | 1024 x 500 PNG/JPG | **to make** - dark navy with the sun mark, "Benkyo Studio" + "Study Japanese. Fully offline." |
+| Feature graphic | 1024 x 500 PNG/JPG | **done** - `assets/brand/play_feature_graphic_1024x500.png` |
 | Phone screenshots | at least 2, 16:9, 1080 x 1920 | **to take** - Today plan, Flashcards, Speak practice, Progress, Reading |
 | 7-inch tablet | optional | skip at launch |
 | Privacy policy URL | required | `docs/playstore/privacy-policy.html` - publish to Google Sites (free) |
@@ -123,12 +123,17 @@ listening, shadowing, no ads, no subscription`
 
 ## Launch checklist
 
-- [ ] `android.api = 36` (set - Play requires a current target SDK)
-- [ ] Release signing key generated and stored **privately** (the debug key in
-      `.keystore/` is not for publishing)
+- [ ] `android.api = 36` (set - Play requires target API 36 from 31 Aug 2026)
+- [ ] **Upload an App Bundle (.aab), not an APK.** New apps have to be
+      published as a bundle, and the debug APK is 137 MB which is over the
+      100 MB limit for APK uploads. The CI workflow builds one:
+      `gh run download benkyo-studio-aab`.
+- [ ] Release signing key generated and stored **privally** (the debug key in
+      `.keystore/` is not for publishing). Play App Signing will hold the real
+      app signing key; the key we upload is the *upload* key.
 - [ ] Version bumped to 1.0.0 (done in `buildozer.spec`)
 - [ ] Privacy policy published at a public URL
-- [ ] Feature graphic made
+- [ ] Feature graphic made - done: `assets/brand/play_feature_graphic_1024x500.png`
 - [ ] Screenshots taken
 - [ ] Data safety form filled in (`docs/playstore/data-safety.md`)
 - [ ] Content rating questionnaire answered (see below)

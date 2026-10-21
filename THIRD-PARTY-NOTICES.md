@@ -1,8 +1,8 @@
-# Third-Party Notices
+﻿# Third-Party Notices
 
 **Benkyo Studio** (formerly "Japanese Sensei AI") ships the following third-party
 software and data. This file is the attribution notice required by those licenses
-and it is also shown inside the app (About → Licenses).
+and it is also shown inside the app (About â†’ Licenses).
 
 The project itself is released under the **GNU General Public License v3.0**
 (see [LICENSE](LICENSE)). Every dependency listed below is compatible with GPL-3.0.
@@ -48,7 +48,7 @@ The project itself is released under the **GNU General Public License v3.0**
 | Component | License | Used for |
 |---|---|---|
 | [CTranslate2](https://github.com/OpenNMT/CTranslate2) | MIT | Inference runtime |
-| [OPUS-MT ja-en](https://huggingface.co/Helsinki-NLP/opus-mt-ja-en) (Helsinki-NLP) | CC BY 4.0 | Japanese ↔ English translation models |
+| [OPUS-MT ja-en](https://huggingface.co/Helsinki-NLP/opus-mt-ja-en) (Helsinki-NLP) | CC BY 4.0 | Japanese â†” English translation models |
 | [SentencePiece](https://github.com/google/sentencepiece) | Apache-2.0 | Japanese text segmentation |
 | [Hugging Face Transformers](https://github.com/huggingface/transformers) | Apache-2.0 | Tokenizer files |
 
@@ -69,7 +69,7 @@ The project itself is released under the **GNU General Public License v3.0**
 
 | Source | License | Used for |
 |---|---|---|
-| [OpenJLPT](https://github.com/evanclan/OpenJLPT) | **CC BY-SA 4.0** | The 10,832 JLPT N5–N1 vocabulary, kanji and grammar cards in `assets/jlpt` |
+| [OpenJLPT](https://github.com/evanclan/OpenJLPT) | **CC BY-SA 4.0** | The 10,832 JLPT N5â€“N1 vocabulary, kanji and grammar cards in `assets/jlpt` |
 | [Jonathan Waller's JLPT Resources](https://www.tanos.co.uk/jlpt/) | CC BY | JLPT level assignments and English glosses |
 | [JMdict](https://www.edrdg.org/jmdict/j_jmdict.html) (EDRDG) | CC BY-SA 4.0 | Dictionary entries, readings, parts of speech |
 | [KANJIDIC2](https://www.edrdg.org/wiki/KANJIDIC_Project.html) (EDRDG) | CC BY-SA 4.0 | Kanji readings, stroke counts, radicals |
@@ -87,7 +87,7 @@ reuse or redistribute those cards must:
 3. release their own derivative dataset under CC BY-SA 4.0.
 
 The cards can be downloaded from
-[`assets/jlpt`](https://github.com/ghettogecko0225-code/Japanese-Sensei-AI/tree/main/assets/jlpt).
+[`assets/jlpt`](https://github.com/ghettogecko0225-code/Benkyo-Studio/tree/main/assets/jlpt).
 
 The **application code** is GPL-3.0; the **card data** is CC BY-SA 4.0. These are
 compatible: CC BY-SA 4.0 is one-way compatible with GPL-3.0.
@@ -106,7 +106,7 @@ Piper voice.
 
 - **Google Play** requires that apps which are distributed under a copyleft
   licence make the corresponding source available. Source code:
-  <https://github.com/ghettogecko0225-code/Japanese-Sensei-AI>
+  <https://github.com/ghettogecko0225-code/Benkyo-Studio>
 - **Android** is a trademark of Google LLC. This app is not affiliated with,
   endorsed by or sponsored by Google LLC or the Japan Foundation.
 - **JLPT** is a registered trademark of the Japan Foundation. This app is an
