@@ -93,22 +93,45 @@ def _check(label):
     return CheckBox(size_hint=(None, 0.05))
 
 
+def card_bg(widget, color, radius=14):
+    """Give a Kivy widget a rounded background."""
+    from kivy.graphics import Color, RoundedRectangle
+
+    def _paint(*_args):
+        widget.canvas.before.clear()
+        with widget.canvas.before:
+            Color(*color)
+            RoundedRectangle(pos=widget.pos, size=widget.size, radius=[radius])
+
+    widget.bind(pos=_paint, size=_paint)
+    _paint()
+    return widget
+
+
 def apply_theme(theme_name="dark"):
     """Apply the shared colour palette to the whole app."""
     c = palette(theme_name)
-    for item in App.get_running_app().root.walk():
-        try:
-            if isinstance(item, Label):
-                item.color = c["text"] if item.font_size and item.font_size >= 18 else c["text_dim"]
-            elif isinstance(item, Button):
-                item.background_color = c["panel"]
-                item.color = c["text"]
-        except Exception:
-            pass
     try:
         Window.clearcolor = c["bg"]
     except Exception:
         pass
+    try:
+        root = App.get_running_app().root
+    except Exception:
+        return
+    for item in root.walk():
+        try:
+            if isinstance(item, Label):
+                item.color = c["text"]
+            elif isinstance(item, Button):
+                item.background_color = c["panel"]
+                item.color = c["text"]
+            elif isinstance(item, TextInput):
+                item.background_color = c["panel"]
+                item.foreground_color = c["text"]
+                item.cursor_color = c["accent"]
+        except Exception:
+            pass
 
 
 def _tts_error():
@@ -248,6 +271,7 @@ class FlashcardScreen(BaseScreen):
         self.status = Label(text="", size_hint=(1, 0.08))
         self.box.add_widget(self.status)
         self.card = Label(text="", font_size=52, size_hint=(1, 0.32))
+        card_bg(self.card, palette(settings.get(ROOT, "theme", "dark"))["card"])
         self.box.add_widget(self.card)
         self.back = Label(text="", font_size=22, size_hint=(1, 0.16))
         self.box.add_widget(self.back)
@@ -825,6 +849,7 @@ class TodayScreen(BaseScreen):
         self.progress = Label(text="", size_hint=(1, 0.08))
         self.card_area.add_widget(self.progress)
         self.prompt = Label(text="", font_size=44, size_hint=(1, 0.24))
+        card_bg(self.prompt, palette(settings.get(ROOT, "theme", "dark"))["card"])
         self.card_area.add_widget(self.prompt)
         self.answer = Label(text="", font_size=20, size_hint=(1, 0.16))
         self.card_area.add_widget(self.answer)
@@ -1004,6 +1029,8 @@ class SenseiApp(App):
         self.sm.add_widget(SettingsScreen(self, name="Settings"))
         self.sm.add_widget(ProgressScreen(self, name="Progress"))
         threading.Thread(target=self._import_full_content, daemon=True).start()
+        theme = settings.get(ROOT, "theme", "dark")
+        Clock.schedule_once(lambda dt: apply_theme(theme), 0.2)
         return self.sm
 
     def _import_full_content(self):
