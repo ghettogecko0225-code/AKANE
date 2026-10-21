@@ -33,6 +33,15 @@ LIGHT = {
 PALETTES = {"dark": DARK, "light": LIGHT}
 
 
+def rgba(hex_color, alpha=1.0):
+    """'#242a3d' -> (0.141, 0.165, 0.239, 1.0) for Kivy."""
+    value = hex_color.lstrip("#")
+    r = int(value[0:2], 16) / 255.0
+    g = int(value[2:4], 16) / 255.0
+    b = int(value[4:6], 16) / 255.0
+    return (r, g, b, alpha)
+
+
 def palette(name="dark"):
     return PALETTES.get(name, DARK)
 

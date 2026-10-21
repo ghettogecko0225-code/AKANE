@@ -52,7 +52,7 @@ from core.audio_pack import AudioPlayer
 from core import asr
 from core import settings
 from core import study
-from core.theme import palette
+from core.theme import palette, rgba
 
 ANDROID = android_speech.is_available()
 
@@ -109,10 +109,12 @@ def card_bg(widget, color, radius=14):
     """Give a Kivy widget a rounded background."""
     from kivy.graphics import Color, RoundedRectangle
 
+    fill = rgba(color) if isinstance(color, str) else color
+
     def _paint(*_args):
         widget.canvas.before.clear()
         with widget.canvas.before:
-            Color(*color)
+            Color(*fill)
             RoundedRectangle(pos=widget.pos, size=widget.size, radius=[radius])
 
     widget.bind(pos=_paint, size=_paint)
@@ -123,8 +125,12 @@ def card_bg(widget, color, radius=14):
 def apply_theme(theme_name="dark"):
     """Apply the shared colour palette to the whole app."""
     c = palette(theme_name)
+    text = rgba(c["text"])
+    dim = rgba(c["text_dim"])
+    panel = rgba(c["panel"])
+    accent = rgba(c["accent"])
     try:
-        Window.clearcolor = c["bg"]
+        Window.clearcolor = rgba(c["bg"])
     except Exception:
         pass
     try:
@@ -134,14 +140,14 @@ def apply_theme(theme_name="dark"):
     for item in root.walk():
         try:
             if isinstance(item, Label):
-                item.color = c["text"]
+                item.color = text if (item.font_size or 0) >= 18 else dim
             elif isinstance(item, Button):
-                item.background_color = c["panel"]
-                item.color = c["text"]
+                item.background_color = panel
+                item.color = text
             elif isinstance(item, TextInput):
-                item.background_color = c["panel"]
-                item.foreground_color = c["text"]
-                item.cursor_color = c["accent"]
+                item.background_color = panel
+                item.foreground_color = text
+                item.cursor_color = accent
         except Exception:
             pass
 
