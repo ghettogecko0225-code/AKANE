@@ -1,15 +1,33 @@
 ﻿# AKANE (formerly Japanese Sensei AI)
 
-Created by Groq Side-Chat on 2026-10-18. Renamed 2026-10-21.
+Created by Groq Side-Chat on 2026-10-18. Renamed twice, finally to AKANE on 2026-10-21.
 
 ## Status
-- **RENAMED to "AKANE"** (package `com.hivepulse.akane`, icon label "AKANE").
-  Reason: "Japanese Sensei" is already the exact name of a live Play app
-  (`com.katanaapps.shiftalk`, Education, 1K+ downloads, updated May 2026) and of
-  the iOS app "Sensei Japanese" (`id6761647436`). Same-name listings in the same
-  category can be rejected. Checked Play (US + JP) and iOS: "AKANE" has
-  no name match. Store title: "AKANE: Learn Japanese".
+- **THE APP IS "AKANE"** (package `com.hivepulse.akane`, icon label "AKANE", repo
+  github.com/ghettogecko0225-code/AKANE). 茜 = the deep crimson of a rising sun,
+  which is what the icon already was. Letters: **AI - Kanji - Audio - Nihongo -
+  Everywhere**.
+- **THE NAME HISTORY (why it changed twice - do not undo this):**
+  1. "Japanese Sensei AI" - "Japanese Sensei" is the exact name of a live Play
+     app (`com.katanaapps.shiftalk`, Education, 1K+ downloads) and of the iOS
+     app "Sensei Japanese" (`id6761647436`). Same-name listings in the same
+     category get rejected.
+  2. "Benkyo Studio" - ALSO crowded: iOS "Benkyo: Speak & Learn Japanese"
+     (`id6737715026`, MWD Services LLC) has a near-identical feature list, plus
+     "Benkyo: Japanese Flashcards", "Benkyo - Language Learning", benkyo.app.
+  3. "AKANE" - checked Play Store (US + JP) + Apple App Store: ZERO collisions.
+     Other Japanese-learning names that were checked and are TAKEN: YOMI, SUMI,
+     FUDE, NARU, HARU, WASHI, SORA (OpenAI), KAMI, AKARI, YUGEN, MUSE, LYRA,
+     VEGA, AION, YUMI, HAKU, KAZE, RYUU, MUSUBI, NAMI, HANA, TERU, MIZU, KUMO.
   Brand strings live in ONE place: `src/core/brand.py`.
+- **COMPANY / DOMAIN:** Kevin's domain `hivepulseinteractive.com` is live
+  (Cloudflare + Zoho Mail, site at hivepulseinteractive.com). Privacy policy
+  goes to `hivepulseinteractive.com/privacy.html`, contact is
+  `privacy@hivepulseinteractive.com`. No separate app domain is needed.
+- **PLAY ACCOUNT:** register as an ORGANISATION account (Hive Pulse Interactive
+  LLC), not personal. Organisation accounts are EXEMPT from the 12-tester /
+  14-day closed test. It needs a D-U-N-S number (free, up to 30 days) + LLC
+  documents + website verification via Google Search Console.
 - Phase 1 (core) complete: SM-2 flashcard engine, SQLite storage, progress tracker, seed loader, config.yaml, language-agnostic design (lang/<code>/).
 - Phase 2 (UI) complete: PyQt6 desktop app (src/pc/main.py, main_window.py, flashcard_view.py). Tabs: Flashcards, Voice, Translate, Workbook, Reading, Listening, Speaking, Progress, News, Shadowing.
 - Phase 3 (voice) complete: STT via faster-whisper (Japanese), TTS via piper (ja_JP-hi_fi_captain-medium). Models live in Studio/models.
@@ -19,7 +37,7 @@ Created by Groq Side-Chat on 2026-10-18. Renamed 2026-10-21.
 - Immersion complete: Reading comprehension, Listening drills, News reader, Shadowing, Speaking (pronunciation score), Progress + 30-day chart + forecast.
 - Tests: 9/9 passing (pytest via Studio venv).
 - Runtime: Studio venv (Python 3.10) + PyQt6 installed there.
-- Windows .exe built: dist/AKANEStudio/AKANEStudio.exe (PyInstaller, spec renamed JapaneseSenseiAI.spec -> AKANEStudio.spec).
+- Windows .exe built: dist/Akane/Akane.exe (PyInstaller, spec renamed JapaneseSenseiAI.spec -> Akane.spec).
 - Android APK: built via GitHub Actions (buildozer + Kivy), installed on phone as org.sensei.japanesesensei. All 10 screens working (Flashcards, Voice, Translate, Workbook, Reading, Listening, Speaking, News, Shadowing, Progress). Full JLPT content (18 decks / 10,832 cards) bundled in assets/jlpt and imported on first run. Verified on device: 18 decks, 10,832 cards, Japanese TTS speaking (ja-JP), audio pack playing via MediaPlayer.
 - Android voice: core/android_speech.py uses Android native TextToSpeech + SpeechRecognizer via pyjnius. Gotchas found: interface is TextToSpeech$OnInitListener (NOT TextToVoice); RecognitionListener.onError takes a single int; setLanguage must be re-applied after onInit; RecognizerIntent.ACTION_RECOGNIZE_SPEECH is a String so you must build an Intent.
 - Offline audio pack: assets/audio (2,329 pre-rendered OGG clips, 41MB) + manifest.json, built by tools/build_audio_pack.py with the local piper voice. Guarantees Japanese audio on any device. core/audio_pack.py plays via MediaPlayer (Android) or soundfile (desktop).
@@ -50,7 +68,7 @@ Created by Groq Side-Chat on 2026-10-18. Renamed 2026-10-21.
 - **PLAY UPLOAD MUST BE AN APP BUNDLE (.aab)**: Google requires new apps to be published as a bundle, and the debug APK is 146 MB which is over the 100 MB APK upload limit. The CI workflow now has a second job `bundle` that runs `buildozer android release` (buildozer's default release_artifact is aab; set explicitly in buildozer.spec) and uploads akane-aab.
 - Verified on the Galaxy A15 (R5CXA4GM9JK) after the rename: `dumpsys package com.hivepulse.akane` shows targetSdk=36, versionName=1.0.0, and requested permissions = RECORD_AUDIO ONLY (no INTERNET).
 - Real Play Store screenshots captured from the device with tools/capture_screenshots.py -> assets/store_screenshots/ (today, flashcards, reading, speaking, progress, about). GOTCHA: the Android back key EXITS the Kivy app instead of popping its screen stack, so the capture script relaunches the app before every screen.
-- FIXED (2026-10-21): the WINDOWS build only ever had the 3 seed decks (112 cards) because the desktop looked for assets/openjlpt/data/json (not bundled, and only a gitlink in the repo) while the real packaged data is assets/jlpt. Fixed by bundling assets/jlpt in AKANEStudio.spec and pointing pc/main_window.py import_content() + the auto-import check at assets/jlpt first. Verified in the frozen build: 18 decks / 10,832 cards, same as the phone.
+- FIXED (2026-10-21): the WINDOWS build only ever had the 3 seed decks (112 cards) because the desktop looked for assets/openjlpt/data/json (not bundled, and only a gitlink in the repo) while the real packaged data is assets/jlpt. Fixed by bundling assets/jlpt in Akane.spec and pointing pc/main_window.py import_content() + the auto-import check at assets/jlpt first. Verified in the frozen build: 18 decks / 10,832 cards, same as the phone.
 
 ## Remaining
 - **Play Store launch**: publish privacy policy to a public URL, create privacy@akanestudio.app, buy the akanestudio.app domain, make the 1024x500 feature graphic + 1080x1920 screenshots, generate a PRIVATE release keystore, start the 12-tester / 14-day closed test.

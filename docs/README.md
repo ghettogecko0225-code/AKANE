@@ -12,7 +12,7 @@ One application in two front ends over one shared core:
 | Front end | Stack | Package |
 |---|---|---|
 | Android phone | Kivy 2.3.1 | `com.hivepulse.akane` |
-| Windows desktop | PyQt6 6.11 | `AKANEStudio.exe` |
+| Windows desktop | PyQt6 6.11 | `Akane.exe` |
 
 Both read the same `src/core/` logic and the same bundled content, so a card
 studied on the phone behaves the same on the desktop.
@@ -71,7 +71,7 @@ AKANE (project root)
 │   └─ README.md               # this file
 │
 ├─ buildozer.spec              # Android build (package id, API level, assets)
-├─ AKANEStudio.spec           # PyInstaller build for Windows
+├─ Akane.spec           # PyInstaller build for Windows
 ├─ p4a-recipes/                # local recipes for sherpa-onnx + charset_normalizer
 ├─ tools/                      # make_brand.py, make_feature_graphic.py, audio pack
 ├─ THIRD-PARTY-NOTICES.md      # every bundled licence
@@ -127,7 +127,7 @@ OpenJLPT (CC BY-SA 4.0)
 
 | Target | Command | Output |
 |---|---|---|
-| Windows | `pyinstaller AKANEStudio.spec` | `dist/AKANEStudio/AKANEStudio.exe` |
+| Windows | `pyinstaller Akane.spec` | `dist/Akane/Akane.exe` |
 | Android | `buildozer android debug` (or push to GitHub Actions) | `bin/*.apk` |
 
 The Android build is done on GitHub Actions (`ubuntu-22.04`, Java 17, Python

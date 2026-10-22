@@ -29,7 +29,7 @@ buildozer android debug
 **Windows**
 
 ```
-pyinstaller AKANEStudio.spec
+pyinstaller Akane.spec
 ```
 
 ## Build from source
