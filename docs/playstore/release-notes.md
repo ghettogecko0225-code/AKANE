@@ -3,7 +3,7 @@
 ## v1.0.0 - first release (copy into the Play Console "Release notes" box)
 
 ```
-First release of Benkyo Studio - a complete JLPT N5-N1 study system that runs
+First release of AKANE - a complete JLPT N5-N1 study system that runs
 entirely on your phone.
 
 - 10,832 cards: vocabulary, kanji and grammar for every level
@@ -15,14 +15,14 @@ entirely on your phone.
 100% offline: no internet permission, no account, no ads, no tracking.
 Nothing you say or study ever leaves your device.
 
-勉強 - benkyo: to study.
+勉強 - akane: to study.
 ```
 
 ## What changed since the last build (0.4.0)
 
-- Renamed to **Benkyo Studio**. "Japanese Sensei" was already the name of another
+- Renamed to **AKANE**. "Japanese Sensei" was already the name of another
   app on the Play Store, so this is a new listing, not an update.
-- New package id `com.hivepulse.benkyo`.
+- New package id `com.hivepulse.akane`.
 - Bundled a properly licensed Japanese font (Noto Sans CJK JP) instead of the
   Microsoft font, which cannot be redistributed.
 - Target SDK raised to Android 16 (API 36), which Play now requires.

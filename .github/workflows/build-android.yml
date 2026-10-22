@@ -55,7 +55,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: benkyo-studio-apk
+          name: akane-apk
           path: bin/*.apk
 
   bundle:
@@ -87,5 +87,5 @@ jobs:
       - name: Upload App Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: benkyo-studio-aab
+          name: akane-aab
           path: bin/*.aab

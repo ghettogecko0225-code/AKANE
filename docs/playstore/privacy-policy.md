@@ -1,28 +1,29 @@
-﻿# Privacy Policy - Benkyo Studio
+﻿# Privacy Policy - AKANE
 
 **Last updated: 21 October 2026**
 
 ## The short version
 
-Benkyo Studio collects no personal data. It has no internet permission, so it
+AKANE collects no personal data. It has no internet permission, so it
 technically cannot send anything anywhere.
 
 ---
 
 ## 1. Who we are
 
-Benkyo Studio is published by Hive Pulse Interactive ("we"). It is an open
-source study app for the Japanese language.
+AKANE is published by **Hive Pulse Interactive** ("we"), a one-person studio in
+Caldwell, Idaho. It is an open source study app for the Japanese language.
 
-- App name: Benkyo Studio
-- Android package id: `com.hivepulse.benkyo`
-- Source code: <https://github.com/ghettogecko0225-code/Benkyo-Studio>
+- App name: AKANE (茜)
+- Android package id: `com.hivepulse.akane`
+- Source code: <https://github.com/ghettogecko0225-code/AKANE>
+- Contact: privacy@hivepulseinteractive.com
 
 ## 2. Data we collect
 
 **None.**
 
-The Android version of Benkyo Studio requests only the `RECORD_AUDIO`
+The Android version of AKANE requests only the `RECORD_AUDIO`
 permission and explicitly does **not** request the `INTERNET` permission. There
 is no code in the app that can open a network connection.
 
@@ -47,7 +48,7 @@ device:
 
 | What | Why | Where |
 |---|---|---|
-| Study progress, review history, scores | So the app can build your daily plan and show your progress | `benkyo.db` in the app's private storage |
+| Study progress, review history, scores | So the app can build your daily plan and show your progress | `akane.db` in the app's private storage |
 | Your settings (theme, language, voice, daily goal) | So the app remembers how you like to study | The same private storage |
 | A small diagnostic log | To help debug speech-recognition problems on your own device | `asr_log.txt` in the app's private storage |
 
@@ -69,12 +70,12 @@ The app asks for the microphone only when you tap a button that records audio
 
 - **Uninstalling the app deletes everything**, including your study history and
   settings, because all of it lives in the app's private storage.
-- To clear it without uninstalling: Android **Settings â†’ Apps â†’ Benkyo Studio â†’
+- To clear it without uninstalling: Android **Settings â†’ Apps â†’ AKANE â†’
   Storage â†’ Clear data**.
 
 ## 6. Children
 
-Benkyo Studio is a general-audience study app and is **not directed at children
+AKANE is a general-audience study app and is **not directed at children
 under 13**. It is not part of Google Play's Family Program and does not collect
 any information from anyone, including children.
 
@@ -92,7 +93,7 @@ Full details are inside the app under **About & Licenses**.
   **Apache 2.0**.
 - Japanese font Noto Sans CJK JP - **SIL Open Font License 1.1**.
 - The application itself is open source under the **GNU General Public License
-  v3.0**. Source: <https://github.com/ghettogecko0225-code/Benkyo-Studio>
+  v3.0**. Source: <https://github.com/ghettogecko0225-code/AKANE>
 
 "Japanese Language Proficiency Test" and "JLPT" are trademarks of the Japan
 Foundation. This app is an unofficial study tool and is not affiliated with or
@@ -109,7 +110,7 @@ in the public history.
 
 Questions, requests or concerns:
 
-**privacy@benkyostudio.app**
+**privacy@hivepulseinteractive.com**
 
 We will answer privacy questions in plain English, and we do not need your
 device or your data to do it.

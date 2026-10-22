@@ -19,8 +19,9 @@ SUN = (224, 83, 61, 255)
 CREAM = (242, 244, 251, 255)
 DIM = (154, 163, 189, 255)
 
-TITLE = "Benkyo Studio"
-TAGLINE = "Study Japanese. Fully offline."
+TITLE = "AKANE"
+KANJI = "茜"
+TAGLINE = "Japanese study, fully offline."
 CHIPS = [
     "10,832 cards",
     "JLPT N5-N1",
@@ -73,6 +74,7 @@ def make(width=1024, height=500):
     # wordmark
     x = tx + tile + 44
     _text(d, (x, 148), TITLE, _font(66), CREAM)
+    _text(d, (x + 250, 156), KANJI, _font(46), SUN)
     _text(d, (x, 228), TAGLINE, _font(31), DIM)
 
     # feature chips, wrapped so nothing runs off the right edge

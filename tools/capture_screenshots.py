@@ -16,8 +16,8 @@ import time
 from pathlib import Path
 
 ADB = r"C:\Users\Universe\AppData\Local\Android\platform-tools\adb.exe"
-PACKAGE = "com.hivepulse.benkyo"
-ACTIVITY = "com.hivepulse.benkyo/org.kivy.android.PythonActivity"
+PACKAGE = "com.hivepulse.akane"
+ACTIVITY = "com.hivepulse.akane/org.kivy.android.PythonActivity"
 
 # Home screen button rows on the Galaxy A15 (1080 x 2340). The buttons are a
 # single full-width column, so only the y coordinate matters.

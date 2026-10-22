@@ -1,8 +1,8 @@
-﻿# Benkyo Studio
+﻿# AKANE
 
 **Study Japanese. Fully offline.**
 
-Benkyo Studio (å‹‰å¼· = "study") is a complete JLPT study system for **N5 to N1**
+AKANE (å‹‰å¼· = "study") is a complete JLPT study system for **N5 to N1**
 that runs entirely on your own device. No account, no ads, no tracking, no
 subscription - and on Android it holds **no internet permission at all**, so it
 physically cannot send anything anywhere.
@@ -29,13 +29,13 @@ buildozer android debug
 **Windows**
 
 ```
-pyinstaller BenkyoStudio.spec
+pyinstaller AKANEStudio.spec
 ```
 
 ## Build from source
 
 ```bash
-git clone https://github.com/ghettogecko0225-code/Benkyo-Studio.git
+git clone https://github.com/ghettogecko0225-code/AKANE.git
 cd Japanese-Sensei-AI
 pip install -r requirements.txt
 python src/pc/main.py          # desktop
@@ -87,4 +87,4 @@ endorsed by the Japan Foundation. Android is a trademark of Google LLC.
 
 ---
 
-å‹‰å¼· - benkyo: to study.
+å‹‰å¼· - akane: to study.

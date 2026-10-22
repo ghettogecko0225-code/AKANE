@@ -13,7 +13,8 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "brand"
 FONT = ROOT / "assets" / "fonts" / "NotoSansCJKjp-Regular.otf"
-APP_TITLE = "Benkyo Studio"
+APP_TITLE = "AKANE"
+APP_KANJI = "茜"
 
 BG = (18, 20, 28, 255)
 SUN = (224, 83, 61, 255)
@@ -70,23 +71,49 @@ def make_splash(w=1280, h=1280):
     img = Image.new("RGBA", (w, h), BG)
     d = ImageDraw.Draw(img)
     sun_r = int(min(w, h) * 0.16)
-    cx, cy = w // 2, int(h * 0.42)
+    cx, cy = w // 2, int(h * 0.40)
     d.ellipse([cx - sun_r, cy - sun_r, cx + sun_r, cy + sun_r], fill=SUN)
     f = _font(int(min(w, h) * 0.24))
     text = "あ"
     box = d.textbbox((0, 0), text, font=f)
     tw, th = box[2] - box[0], box[3] - box[1]
     d.text((cx - tw / 2 - box[0], cy - th / 2 - box[1]), text, font=f, fill=CREAM)
-    f2 = _font(int(min(w, h) * 0.045))
+
+    # wordmark: AKANE with its kanji
+    f2 = _font(int(min(w, h) * 0.085))
     sub = APP_TITLE
     box2 = d.textbbox((0, 0), sub, font=f2)
+    sub_w = box2[2] - box2[0]
     d.text(
-        (cx - (box2[2] - box2[0]) / 2 - box2[0], int(h * 0.62)),
+        (cx - sub_w / 2 - box2[0], int(h * 0.58)),
         sub,
         font=f2,
+        fill=CREAM,
+    )
+
+    # the kanji the name means: 茜 (crimson)
+    f3 = _font(int(min(w, h) * 0.055))
+    kanji = APP_KANJI
+    box3 = d.textbbox((0, 0), kanji, font=f3)
+    d.text(
+        (cx - (box3[2] - box3[0]) / 2 - box3[0], int(h * 0.675)),
+        kanji,
+        font=f3,
+        fill=SUN,
+    )
+
+    # the letters spelled out
+    f4 = _font(int(min(w, h) * 0.032))
+    line = "AI  ·  Kanji  ·  Audio  ·  Nihongo  ·  Everywhere"
+    box4 = d.textbbox((0, 0), line, font=f4)
+    d.text(
+        (cx - (box4[2] - box4[0]) / 2 - box4[0], int(h * 0.755)),
+        line,
+        font=f4,
         fill=DIM,
     )
     return img
+
 
 
 def main():

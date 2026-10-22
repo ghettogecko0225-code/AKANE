@@ -3,4 +3,4 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 import mobile.main
-mobile.main.BenkyoApp().run()
+mobile.main.AkaneApp().run()

@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         self.resize(900, 600)
 
-        db_path = self.data_dir / "data" / "benkyo.db"
+        db_path = self.data_dir / "data" / "akane.db"
         self.conn = connect(str(db_path))
         self.engine = FlashCardEngine(self.conn)
         self.progress = ProgressTracker(self.conn)

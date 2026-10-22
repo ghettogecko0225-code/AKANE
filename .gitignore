@@ -4,11 +4,11 @@ __pycache__/
 *.pyc
 *.spec
 !buildozer.spec
-!BenkyoStudio.spec
+!Akane.spec
 models/
-dist/BenkyoStudio/models/
+dist/Akane/models/
 data/
-data/benkyo.db
+data/akane.db
 data/asr_log.txt
 assets/openjlpt/.git
 sessions/

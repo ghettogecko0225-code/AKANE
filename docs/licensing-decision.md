@@ -120,18 +120,18 @@ is one-way compatible with GPL-3.0.
 same category reads as a knock-off, and Google can reject the listing or a
 third party can complain about it.
 
-The app was renamed to **Benkyo Studio** (勉強 = "study").
+The app was renamed to **AKANE** (勉強 = "study").
 
 - Checked on Google Play in the **US** and **JP** locales: no exact name match.
 - Checked on the Apple App Store: no exact name match.
-- The domain `benkyostudio.app` was **not registered** when checked on 21 October
+- The domain `akanestudio.app` was **not registered** when checked on 21 October
   2026 (no NS or A records, RDAP returns not-found). **Buy it before launch**
   so the privacy-policy email address works and so the name cannot be squatted.
 
 Also checked, so they are not surprised: there is an unrelated iOS app called
-`Benkyo: Speak & Learn Japanese`. That is a different store and a different
+`AKANE: Speak & Learn Japanese`. That is a different store and a different
 name, so it does not block this launch, but it is why the store title is
-`Benkyo Studio: Learn Japanese` rather than just `Benkyo`.
+`AKANE: Learn Japanese` rather than just `AKANE`.
 
 ## 7. Open items that are not licences but still block the launch
 
@@ -139,7 +139,7 @@ name, so it does not block this launch, but it is why the store title is
    with a password in the repository. Generate a real release key, keep it
    private and never commit it.
 2. **Privacy-policy URL.** `docs/playstore/privacy-policy.html` has to be
-   published to a public URL, and `privacy@benkyostudio.app` needs to be a real
+   published to a public URL, and `privacy@akanestudio.app` needs to be a real
    mailbox.
 3. **`android.api = 36`** - set. Play requires a current target SDK.
 4. **Feature graphic and screenshots** - still to be produced.

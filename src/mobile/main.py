@@ -248,7 +248,7 @@ class BaseScreen(Screen):
 
 class HomeScreen(BaseScreen):
     def __init__(self, app_ref, **kwargs):
-        super().__init__(app_ref, "Benkyo Studio", **kwargs)
+        super().__init__(app_ref, "AKANE", **kwargs)
         self.deck_items = []
         self.spinner = Spinner(text="Choose deck", values=self.deck_items, size_hint=(1, 0.09))
         self.spinner.bind(text=self.on_deck)
@@ -962,7 +962,7 @@ class SettingsScreen(BaseScreen):
         apply_theme(self.theme.text)
 
 
-class BenkyoApp(App):
+class AkaneApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.root_path = ROOT
@@ -970,7 +970,7 @@ class BenkyoApp(App):
         self.session_count = 0
         data_dir = ROOT / "data"
         data_dir.mkdir(parents=True, exist_ok=True)
-        self.conn = connect(str(data_dir / "benkyo.db"))
+        self.conn = connect(str(data_dir / "akane.db"))
         self.engine = FlashCardEngine(self.conn)
         self.progress = ProgressTracker(self.conn)
         existing = {d["name"] for d in self.engine.list_decks()}
@@ -1031,4 +1031,4 @@ class BenkyoApp(App):
 
 
 if __name__ == "__main__":
-    BenkyoApp().run()
+    AkaneApp().run()

@@ -1,4 +1,4 @@
-# Benkyo Studio - Architecture Overview
+# AKANE - Architecture Overview
 
 How the app is actually put together, as of the 1.0.0 release (21 October 2026).
 
@@ -11,8 +11,8 @@ One application in two front ends over one shared core:
 
 | Front end | Stack | Package |
 |---|---|---|
-| Android phone | Kivy 2.3.1 | `com.hivepulse.benkyo` |
-| Windows desktop | PyQt6 6.11 | `BenkyoStudio.exe` |
+| Android phone | Kivy 2.3.1 | `com.hivepulse.akane` |
+| Windows desktop | PyQt6 6.11 | `AKANEStudio.exe` |
 
 Both read the same `src/core/` logic and the same bundled content, so a card
 studied on the phone behaves the same on the desktop.
@@ -23,9 +23,9 @@ permission, so it cannot phone home even by accident.
 ## Layout
 
 ```
-Benkyo Studio (project root)
+AKANE (project root)
 │
-├─ main.py                     # phone entry point -> mobile.main.BenkyoApp
+├─ main.py                     # phone entry point -> mobile.main.AKANEApp
 │
 ├─ src/
 │   ├─ core/                   # shared logic, no UI imports
@@ -71,7 +71,7 @@ Benkyo Studio (project root)
 │   └─ README.md               # this file
 │
 ├─ buildozer.spec              # Android build (package id, API level, assets)
-├─ BenkyoStudio.spec           # PyInstaller build for Windows
+├─ AKANEStudio.spec           # PyInstaller build for Windows
 ├─ p4a-recipes/                # local recipes for sherpa-onnx + charset_normalizer
 ├─ tools/                      # make_brand.py, make_feature_graphic.py, audio pack
 ├─ THIRD-PARTY-NOTICES.md      # every bundled licence
@@ -127,7 +127,7 @@ OpenJLPT (CC BY-SA 4.0)
 
 | Target | Command | Output |
 |---|---|---|
-| Windows | `pyinstaller BenkyoStudio.spec` | `dist/BenkyoStudio/BenkyoStudio.exe` |
+| Windows | `pyinstaller AKANEStudio.spec` | `dist/AKANEStudio/AKANEStudio.exe` |
 | Android | `buildozer android debug` (or push to GitHub Actions) | `bin/*.apk` |
 
 The Android build is done on GitHub Actions (`ubuntu-22.04`, Java 17, Python

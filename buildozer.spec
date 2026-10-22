@@ -1,6 +1,6 @@
 [app]
-title = Benkyo Studio
-package.name = benkyo
+title = AKANE
+package.name = akane
 package.domain = com.hivepulse
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json,yaml,txt,otf,ogg,onnx

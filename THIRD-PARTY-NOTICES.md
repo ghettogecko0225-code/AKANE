@@ -1,6 +1,6 @@
 ﻿# Third-Party Notices
 
-**Benkyo Studio** (formerly "Japanese Sensei AI") ships the following third-party
+**AKANE** (formerly "Japanese Sensei AI") ships the following third-party
 software and data. This file is the attribution notice required by those licenses
 and it is also shown inside the app (About â†’ Licenses).
 
@@ -87,7 +87,7 @@ reuse or redistribute those cards must:
 3. release their own derivative dataset under CC BY-SA 4.0.
 
 The cards can be downloaded from
-[`assets/jlpt`](https://github.com/ghettogecko0225-code/Benkyo-Studio/tree/main/assets/jlpt).
+[`assets/jlpt`](https://github.com/ghettogecko0225-code/AKANE/tree/main/assets/jlpt).
 
 The **application code** is GPL-3.0; the **card data** is CC BY-SA 4.0. These are
 compatible: CC BY-SA 4.0 is one-way compatible with GPL-3.0.
@@ -96,7 +96,7 @@ compatible: CC BY-SA 4.0 is one-way compatible with GPL-3.0.
 
 The immersion passages, dialogues, news-style reading texts, workbook exercises,
 speakable-word list and the pre-rendered voice clips were written or generated
-specifically for Benkyo Studio and are covered by the project licence (GPL-3.0).
+specifically for AKANE and are covered by the project licence (GPL-3.0).
 The voice clips were rendered with the MIT-licensed `ja_JP-hi_fi_captain-medium`
 Piper voice.
 
@@ -106,7 +106,7 @@ Piper voice.
 
 - **Google Play** requires that apps which are distributed under a copyleft
   licence make the corresponding source available. Source code:
-  <https://github.com/ghettogecko0225-code/Benkyo-Studio>
+  <https://github.com/ghettogecko0225-code/AKANE>
 - **Android** is a trademark of Google LLC. This app is not affiliated with,
   endorsed by or sponsored by Google LLC or the Japan Foundation.
 - **JLPT** is a registered trademark of the Japan Foundation. This app is an

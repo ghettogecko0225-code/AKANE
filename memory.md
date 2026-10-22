@@ -1,14 +1,14 @@
-﻿# Benkyo Studio (formerly Japanese Sensei AI)
+﻿# AKANE (formerly Japanese Sensei AI)
 
 Created by Groq Side-Chat on 2026-10-18. Renamed 2026-10-21.
 
 ## Status
-- **RENAMED to "Benkyo Studio"** (package `com.hivepulse.benkyo`, icon label "Benkyo").
+- **RENAMED to "AKANE"** (package `com.hivepulse.akane`, icon label "AKANE").
   Reason: "Japanese Sensei" is already the exact name of a live Play app
   (`com.katanaapps.shiftalk`, Education, 1K+ downloads, updated May 2026) and of
   the iOS app "Sensei Japanese" (`id6761647436`). Same-name listings in the same
-  category can be rejected. Checked Play (US + JP) and iOS: "Benkyo Studio" has
-  no name match. Store title: "Benkyo Studio: Learn Japanese".
+  category can be rejected. Checked Play (US + JP) and iOS: "AKANE" has
+  no name match. Store title: "AKANE: Learn Japanese".
   Brand strings live in ONE place: `src/core/brand.py`.
 - Phase 1 (core) complete: SM-2 flashcard engine, SQLite storage, progress tracker, seed loader, config.yaml, language-agnostic design (lang/<code>/).
 - Phase 2 (UI) complete: PyQt6 desktop app (src/pc/main.py, main_window.py, flashcard_view.py). Tabs: Flashcards, Voice, Translate, Workbook, Reading, Listening, Speaking, Progress, News, Shadowing.
@@ -19,7 +19,7 @@ Created by Groq Side-Chat on 2026-10-18. Renamed 2026-10-21.
 - Immersion complete: Reading comprehension, Listening drills, News reader, Shadowing, Speaking (pronunciation score), Progress + 30-day chart + forecast.
 - Tests: 9/9 passing (pytest via Studio venv).
 - Runtime: Studio venv (Python 3.10) + PyQt6 installed there.
-- Windows .exe built: dist/BenkyoStudio/BenkyoStudio.exe (PyInstaller, spec renamed JapaneseSenseiAI.spec -> BenkyoStudio.spec).
+- Windows .exe built: dist/AKANEStudio/AKANEStudio.exe (PyInstaller, spec renamed JapaneseSenseiAI.spec -> AKANEStudio.spec).
 - Android APK: built via GitHub Actions (buildozer + Kivy), installed on phone as org.sensei.japanesesensei. All 10 screens working (Flashcards, Voice, Translate, Workbook, Reading, Listening, Speaking, News, Shadowing, Progress). Full JLPT content (18 decks / 10,832 cards) bundled in assets/jlpt and imported on first run. Verified on device: 18 decks, 10,832 cards, Japanese TTS speaking (ja-JP), audio pack playing via MediaPlayer.
 - Android voice: core/android_speech.py uses Android native TextToSpeech + SpeechRecognizer via pyjnius. Gotchas found: interface is TextToSpeech$OnInitListener (NOT TextToVoice); RecognitionListener.onError takes a single int; setLanguage must be re-applied after onInit; RecognizerIntent.ACTION_RECOGNIZE_SPEECH is a String so you must build an Intent.
 - Offline audio pack: assets/audio (2,329 pre-rendered OGG clips, 41MB) + manifest.json, built by tools/build_audio_pack.py with the local piper voice. Guarantees Japanese audio on any device. core/audio_pack.py plays via MediaPlayer (Android) or soundfile (desktop).
@@ -40,20 +40,20 @@ Created by Groq Side-Chat on 2026-10-18. Renamed 2026-10-21.
 - Android diagnostics: logcat DROPS prints from background threads. core/asr.py writes to <app>/data/asr_log.txt instead - pull it with: adb shell run-as org.sensei.japanesesensei cat files/app/data/asr_log.txt
 - **LICENCE CLEAN-UP (2026-10-21)**: MS Gothic (msgothic.ttc, Microsoft, NOT redistributable) was DELETED from assets/fonts and replaced with NotoSansCJKjp-Regular.otf (SIL OFL 1.1) + assets/fonts/OFL.txt. Icon/splash regenerated from the bundled font (tools/make_brand.py no longer reads C:\Windows\Fonts). Mobile font registration in src/mobile/main.py now points at the .otf.
 - Verified licences: phone stack is fully permissive (Kivy MIT, sherpa-onnx Apache-2.0, ReazonSpeech model Apache-2.0 + explicitly free for commercial use, onnxruntime MIT, Noto OFL). Data = OpenJLPT CC BY-SA 4.0 (attribution + share-alike on the card data). Desktop-only: PyQt6 GPL-3.0-only + piper-tts GPL-3.0-or-later -> the Windows build is released as GPL-3.0 open source. Repo LICENSE = GPL-3.0; THIRD-PARTY-NOTICES.md = full inventory; docs/licensing-decision.md = plain-English rationale.
-- `android.api = 36` (Play target SDK requirement), version 1.0.0, `otf` added to source.include_exts, package id com.hivepulse.benkyo.
+- `android.api = 36` (Play target SDK requirement), version 1.0.0, `otf` added to source.include_exts, package id com.hivepulse.akane.
 - Play Store package written: docs/playstore/listing.md (name/short/full copy + screenshot plan + content-rating answers + 12-tester/14-day new-account rule), privacy-policy.md + publishable privacy-policy.html, data-safety.md (all "not collected" - the app has no INTERNET permission and zero network code in the mobile path).
-- Still open for the launch: real release keystore (never commit it), publish the privacy policy to a public URL, privacy@benkyostudio.app mailbox, feature graphic (1024x500) + 1080x1920 screenshots, start the 12-tester closed test.
+- Still open for the launch: real release keystore (never commit it), publish the privacy policy to a public URL, privacy@akanestudio.app mailbox, feature graphic (1024x500) + 1080x1920 screenshots, start the 12-tester closed test.
 - Pronunciation scoring is kanji/kana aware: core/speaking.py build_reading_map() maps 6,540 JLPT kanji words to hiragana so a kanji target scores fairly against kana speech.
 - Japanese speech recognition on this phone: device's own recognizer has no Japanese model (error 7), so the bundled Vosk model is the primary engine and the device engine is only a fallback.
-- GitHub repo: https://github.com/ghettogecko0225-code/Benkyo-Studio (branch main, PUBLIC, renamed from Japanese-Sensei-AI - the old URL redirects). Repo is PUBLIC - GPL compliance relies on that.
+- GitHub repo: https://github.com/ghettogecko0225-code/AKANE (branch main, PUBLIC, renamed from Japanese-Sensei-AI - the old URL redirects). Repo is PUBLIC - GPL compliance relies on that.
 - Backups: D:\Backups\JAPANESE_SENSEI_AI_*.zip
-- **PLAY UPLOAD MUST BE AN APP BUNDLE (.aab)**: Google requires new apps to be published as a bundle, and the debug APK is 146 MB which is over the 100 MB APK upload limit. The CI workflow now has a second job `bundle` that runs `buildozer android release` (buildozer's default release_artifact is aab; set explicitly in buildozer.spec) and uploads benkyo-studio-aab.
-- Verified on the Galaxy A15 (R5CXA4GM9JK) after the rename: `dumpsys package com.hivepulse.benkyo` shows targetSdk=36, versionName=1.0.0, and requested permissions = RECORD_AUDIO ONLY (no INTERNET).
+- **PLAY UPLOAD MUST BE AN APP BUNDLE (.aab)**: Google requires new apps to be published as a bundle, and the debug APK is 146 MB which is over the 100 MB APK upload limit. The CI workflow now has a second job `bundle` that runs `buildozer android release` (buildozer's default release_artifact is aab; set explicitly in buildozer.spec) and uploads akane-aab.
+- Verified on the Galaxy A15 (R5CXA4GM9JK) after the rename: `dumpsys package com.hivepulse.akane` shows targetSdk=36, versionName=1.0.0, and requested permissions = RECORD_AUDIO ONLY (no INTERNET).
 - Real Play Store screenshots captured from the device with tools/capture_screenshots.py -> assets/store_screenshots/ (today, flashcards, reading, speaking, progress, about). GOTCHA: the Android back key EXITS the Kivy app instead of popping its screen stack, so the capture script relaunches the app before every screen.
-- FIXED (2026-10-21): the WINDOWS build only ever had the 3 seed decks (112 cards) because the desktop looked for assets/openjlpt/data/json (not bundled, and only a gitlink in the repo) while the real packaged data is assets/jlpt. Fixed by bundling assets/jlpt in BenkyoStudio.spec and pointing pc/main_window.py import_content() + the auto-import check at assets/jlpt first. Verified in the frozen build: 18 decks / 10,832 cards, same as the phone.
+- FIXED (2026-10-21): the WINDOWS build only ever had the 3 seed decks (112 cards) because the desktop looked for assets/openjlpt/data/json (not bundled, and only a gitlink in the repo) while the real packaged data is assets/jlpt. Fixed by bundling assets/jlpt in AKANEStudio.spec and pointing pc/main_window.py import_content() + the auto-import check at assets/jlpt first. Verified in the frozen build: 18 decks / 10,832 cards, same as the phone.
 
 ## Remaining
-- **Play Store launch**: publish privacy policy to a public URL, create privacy@benkyostudio.app, buy the benkyostudio.app domain, make the 1024x500 feature graphic + 1080x1920 screenshots, generate a PRIVATE release keystore, start the 12-tester / 14-day closed test.
+- **Play Store launch**: publish privacy policy to a public URL, create privacy@akanestudio.app, buy the akanestudio.app domain, make the 1024x500 feature graphic + 1080x1920 screenshots, generate a PRIVATE release keystore, start the 12-tester / 14-day closed test.
 - Packaging the Windows build as an installer (Inno Setup) if it is going to be sold.
 - More content (vocab, grammar, kanji beyond N5).
 - Per-language hive folders for other languages.

@@ -1,4 +1,4 @@
-# Benkyo Studio - Google Play listing
+# AKANE - Google Play listing
 
 Everything below is copy-paste ready. Character limits are Google's and are
 checked at the bottom of this file.
@@ -8,14 +8,24 @@ checked at the bottom of this file.
 ## App name (max 30 characters)
 
 ```
-Benkyo Studio: Learn Japanese
+AKANE: Learn Japanese Offline
 ```
 
-Why: "Japanese Sensei" is already the exact name of a live Play app
-(`com.katanaapps.shiftalk`) and of the iOS app "Sensei Japanese"
-(`id6761647436`). A same-name app in the same category reads as a knock-off
-and can be rejected. "Benkyo Studio" was checked on Play Store (US + JP) and
-Apple App Store - no name match. 勉強 = "study".
+Why this name: the app was renamed twice for clearance reasons.
+
+1. "Japanese Sensei AI" - "Japanese Sensei" is the exact name of a live Play
+   app (`com.katanaapps.shiftalk`) and of the iOS app "Sensei Japanese"
+   (`id6761647436`). A same-name app in the same category reads as a knock-off
+   and can be rejected.
+2. "Benkyo Studio" - "Benkyo" is crowded in this exact category: iOS has
+   "Benkyo: Speak & Learn Japanese" (`id6737715026`, MWD Services LLC) with a
+   near-identical feature list, plus "Benkyo: Japanese Flashcards", "Benkyo -
+   Language Learning" and the domain `benkyo.app`.
+3. **AKANE** - checked against the Play Store (US + JP) and the Apple App
+   Store: zero name collisions. 茜 = the deep crimson of a rising sun, which
+   is what the app icon is.
+
+The letters: **AI - Kanji - Audio - Nihongo - Everywhere.**
 
 ## Short description (max 80 characters)
 
@@ -26,14 +36,16 @@ JLPT N5-N1 study that is 100% offline. No ads, no account, no tracking.
 ## Full description (max 4000 characters)
 
 ```
-Benkyo Studio - JLPT Japanese, completely offline.
+AKANE - JLPT Japanese, completely offline.
 
 The Japanese app that never asks for the internet.
 
-Benkyo Studio is a full JLPT study system for N5 to N1 that works in airplane
+AKANE is a full JLPT study system for N5 to N1 that works in airplane
 mode. No account, no ads, no tracking, no subscription, no "data required"
 warning. Every card, every audio clip and every bit of speech recognition runs
 on your own phone.
+
+AI - Kanji - Audio - Nihongo - Everywhere.
 
 WHAT YOU GET
 
@@ -75,7 +87,7 @@ Jonathan Waller's JLPT lists and Tatoeba. Speech recognition by sherpa-onnx and
 the ReazonSpeech model (Apache 2.0). Japanese font: Noto Sans CJK JP (OFL).
 Full licence details are inside the app under About & Licenses.
 
-Benkyo means "study" in Japanese. 勉強.
+AKANE means 茜 - the deep crimson of a rising sun.
 ```
 
 ## Category and tags
@@ -98,10 +110,10 @@ Benkyo means "study" in Japanese. 勉強.
 | Feature graphic | 1024 x 500 PNG/JPG | **done** - `assets/brand/play_feature_graphic_1024x500.png` |
 | Phone screenshots | at least 2, 16:9, 1080 x 1920 | **done** - `assets/store_screenshots/` (6 real captures from the phone) |
 | 7-inch tablet | optional | skip at launch |
-| Privacy policy URL | required | `docs/playstore/privacy-policy.html` - publish to Google Sites (free) |
+| Privacy policy URL | required | `docs/playstore/privacy-policy.html` - publish at `hivepulseinteractive.com/privacy.html` |
 | Short description | 80 chars | above |
 | Full description | 4000 chars | above |
-| Support email | required | a real inbox Kevin controls |
+| Support email | required | `privacy@hivepulseinteractive.com` |
 
 ## Screenshot plan (in this order)
 
@@ -114,8 +126,8 @@ Benkyo means "study" in Japanese. 勉強.
 
 ## Keywords for the store description
 
-Benkyo Studio is the only place these words can live - put them in the long
-description naturally, they are already there or close to it:
+The long description is the only place these words can live - put them in
+naturally, they are already there or close to it:
 
 `jlpt, n5, n4, n3, n2, n1, japanese, nihongo, kanji, hiragana, katakana,
 vocabulary, grammar, offline, study, flashcard, pronunciation, speaking,
@@ -125,21 +137,21 @@ listening, shadowing, no ads, no subscription`
 
 - [ ] `android.api = 36` (set - Play requires target API 36 from 31 Aug 2026)
 - [ ] **Upload an App Bundle (.aab), not an APK.** New apps have to be
-      published as a bundle, and the debug APK is 137 MB which is over the
+      published as a bundle, and the debug APK is ~146 MB which is over the
       100 MB limit for APK uploads. The CI workflow builds one:
-      `gh run download benkyo-studio-aab`.
+      `gh run download akane-aab`.
 - [ ] Release signing key generated and stored **privally** (the debug key in
       `.keystore/` is not for publishing). Play App Signing will hold the real
       app signing key; the key we upload is the *upload* key.
 - [ ] Version bumped to 1.0.0 (done in `buildozer.spec`)
-- [ ] Privacy policy published at a public URL
+- [ ] Privacy policy published at `hivepulseinteractive.com/privacy.html`
 - [ ] Feature graphic made - done: `assets/brand/play_feature_graphic_1024x500.png`
-- [ ] Screenshots taken
+- [ ] Screenshots taken - done: `assets/store_screenshots/` (recapture after the rename)
 - [ ] Data safety form filled in (`docs/playstore/data-safety.md`)
 - [ ] Content rating questionnaire answered (see below)
 - [ ] Source code link in the listing (required - the app is GPL-3.0)
 - [ ] Target audience + content rating set
-- [ ] Store contact email that Kevin controls
+- [ ] Store contact email: `privacy@hivepulseinteractive.com`
 
 ## Content rating questionnaire - answers to give
 
@@ -158,20 +170,29 @@ listening, shadowing, no ads, no subscription`
 ## Families policy notes
 
 If the target audience includes children, Google requires the app to meet the
-Families policy (ads must be behavioural, analytics limited, etc.). Benkyo
-Studio avoids this entirely by declaring **16-17 and 18+ only** and by keeping
+Families policy (ads must be behavioural, analytics limited, etc.). AKANE
+avoids this entirely by declaring **16-17 and 18+ only** and by keeping
 the icon and in-app art adult and non-childish. Do not tick any child age
 group.
 
-## Personal developer accounts (new accounts)
+## Developer account type - organisation, not personal
 
-If the Play console account is new, the first release has to go through:
+Register the Play Console account under **Hive Pulse Interactive** (the LLC),
+not the personal Gmail. Two reasons:
 
-1. **Closed test with at least 12 testers opted in for 14 continuous days.**
-2. Apply for **production access** (Play's review of the app and the tester
-   feedback).
-3. Only then can the app go live in production.
+1. **Organisation accounts are exempt from the 12-tester / 14-day closed test.**
+   A new personal account must run a closed test with 12 testers for 14
+   consecutive days before it can go to production. An organisation account
+   can go straight through.
+2. The store listing will show the company, not a person's name - better trust
+   for a paid app, and it matches the website.
 
-Start the closed test early - it is a hard 14-day clock. Use Google Groups for
-the tester list. While the closed test runs, publish the privacy policy, make
-the screenshots and fill in every form, so nothing is waiting on the review.
+**The cost of that choice:** an organisation account needs a **D-U-N-S number**
+(free from Dun & Bradstreet, but it can take up to 30 days) plus the LLC's
+registration documents, and the website has to be verified through Google
+Search Console. Start the D-U-N-S application first thing - it is the longest
+pole in the whole launch.
+
+Also note: since May 2026 Google requires account transfers to use the
+official 'Transfer ownership' workflow, so the first account should be set up
+correctly rather than fixed later.

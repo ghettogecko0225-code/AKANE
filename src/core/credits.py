@@ -4,7 +4,9 @@ Kept in one place so the app can print the same attribution that ships in
 THIRD-PARTY-NOTICES.md and on the store listing.
 """
 
-CREDITS = """Benkyo Studio - Japanese study, fully offline.
+CREDITS = """AKANE - Japanese study, fully offline.
+
+AI - Kanji - Audio - Nihongo - Everywhere.
 
 Everything here runs on this device. The app has no internet permission:
 no account, no ads, no tracking, nothing you say or study leaves the phone.
